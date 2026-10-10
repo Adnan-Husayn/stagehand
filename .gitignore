@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+coverage/
+
+# Environment files: real keys never leave the machine. .env.example stays tracked.
+.env*
+!.env.example
+
+# Qloo data must not be committed: recorded responses, caches and debug dumps.
+qloo-responses/
+recorded/
+.qloo-cache/
+*.qloo-cache.json
+qloo-debug*
+debug-dumps/
+*.log
+
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+.vercel
