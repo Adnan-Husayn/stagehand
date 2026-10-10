@@ -37,7 +37,7 @@ export async function runStagehand(request: StartRequest, emit: Emit): Promise<v
       "status",
       config.demo
         ? "Demo mode: replaying a fixed sample run."
-        : `Live run started with ${config.llmModel}.`,
+        : "Live run started with the Qloo API and a language model.",
     ),
   });
 
