@@ -5,6 +5,7 @@ import type { AgentEvent, PromoPlan, ShortlistResult, StartRequest } from "../ty
 import { RunContext } from "./context";
 import { promoDemoPlan, runDemoAgent, shortlistDemoPlan } from "./demo";
 import { makeStep } from "./exec";
+import { createLlmClient } from "./llm";
 import { runLiveAgent } from "./live";
 import { promoTools, shortlistTools } from "./tools";
 import { promoUserMessage, PROMO_SYSTEM, SHORTLIST_SYSTEM, shortlistUserMessage } from "./prompts";
@@ -36,7 +37,7 @@ export async function runStagehand(request: StartRequest, emit: Emit): Promise<v
       "status",
       config.demo
         ? "Demo mode: replaying a fixed sample run."
-        : `Live run started with ${config.anthropicModel}.`,
+        : `Live run started with ${config.llmModel}.`,
     ),
   });
 
@@ -47,8 +48,11 @@ export async function runStagehand(request: StartRequest, emit: Emit): Promise<v
     data = await runDemoAgent({ steps: plan.steps, final: plan.final, finalTool, tools, ctx, emit });
   } else {
     data = await runLiveAgent({
-      apiKey: config.anthropicApiKey ?? "",
-      model: config.anthropicModel,
+      llm: createLlmClient({
+        apiKey: config.llmApiKey ?? "",
+        baseUrl: config.llmBaseUrl,
+        model: config.llmModel,
+      }),
       system: request.mode === "shortlist" ? SHORTLIST_SYSTEM : PROMO_SYSTEM,
       userMessage:
         request.mode === "shortlist"

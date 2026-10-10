@@ -15,7 +15,7 @@ export function GET() {
   }
   const status: AppStatus = {
     demo: config.demo,
-    model: config.anthropicModel,
+    model: config.llmModel,
     qlooHost,
   };
   return Response.json(status);

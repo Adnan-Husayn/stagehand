@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { runStagehand } from "@/lib/agent/run";
 import { parseStartRequest } from "@/lib/agent/validate-request";
+import { LlmError } from "@/lib/agent/llm";
 import { QlooError } from "@/lib/qloo/client";
 import type { AgentEvent } from "@/lib/types/stagehand";
 
@@ -10,9 +11,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function userFacingError(err: unknown): string {
-  if (err instanceof QlooError) return err.message;
+  if (err instanceof QlooError || err instanceof LlmError) return err.message;
   if (err instanceof Error && err.message) {
-    // Anthropic SDK errors carry status codes; keep messages short and free of request details.
+    // Keep messages short and free of request details.
     return err.message.length > 300 ? `${err.message.slice(0, 297)}...` : err.message;
   }
   return "Something went wrong while running the agent. Check the server logs.";
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
       try {
         await runStagehand(parsed.value, send);
       } catch (err) {
-        if (!(err instanceof QlooError)) console.error("[stagehand] run failed:", err);
+        if (!(err instanceof QlooError) && !(err instanceof LlmError)) console.error("[stagehand] run failed:", err);
         send({ type: "error", message: userFacingError(err) });
       } finally {
         send({ type: "done" });
