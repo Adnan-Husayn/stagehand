@@ -84,4 +84,4 @@ A 400 or 404 moves to the next strategy. A 401, 403, 429 or 5xx does not, becaus
 
 ## Demo fixtures
 
-`src/lib/demo/fixtures.ts` holds fictional entities with ids prefixed `sample-`. The fixture transport follows the shapes above, honours `filter.exclude.entities`, and marks responses with `_sample: true`. The names and numbers are not Qloo output. The fixtures contain no `tv_show` entries, so TV shows appear only in live mode.
+`src/lib/demo/fixtures.ts` holds fictional entities with ids prefixed `sample-`. The fixture transport follows the shapes above, honours `filter.exclude.entities`, and marks responses with `_sample: true`. The names and numbers are not Qloo output. The fixtures cover every kind Stagehand uses (artist, place, brand, podcast, movie and TV show) and answer any well-formed `/search` or `/v2/insights` call with deterministic sample data, so a real model can be tested against them. They still return 400 for a call with no signal or location, as the real API is documented to. They cannot tell you whether Qloo's real filters work.

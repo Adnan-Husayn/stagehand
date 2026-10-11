@@ -52,7 +52,7 @@ function clientWith(fetchImpl: typeof fetch, extra: Partial<Parameters<typeof cr
 }
 
 describe("request building", () => {
-  it("posts to {base}/chat/completions with tools, tool_choice auto and low temperature", async () => {
+  it("posts to {base}/chat/completions with tools and tool_choice auto, and omits temperature by default", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse(completion({ content: "hi" })));
     await clientWith(fetchImpl as unknown as typeof fetch).chat(MESSAGES, TOOLS);
 
@@ -65,7 +65,8 @@ describe("request building", () => {
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe("test-model");
     expect(body.tool_choice).toBe("auto");
-    expect(body.temperature).toBeLessThanOrEqual(0.3);
+    expect(body).not.toHaveProperty("temperature");
+    expect(body).not.toHaveProperty("thinking");
     expect(body.messages).toEqual(MESSAGES);
     expect(body.tools).toHaveLength(1);
     expect(body.tools[0].type).toBe("function");
@@ -162,17 +163,52 @@ describe("response parsing", () => {
     expect(reply.assistantMessage.tool_calls?.[0]).toMatchObject({ extra_content: { google: { thought_signature: "sig" } } });
   });
 
-  it("strips reasoning from the visible text and never echoes reasoning fields", () => {
+  it("strips reasoning from the visible text and echoes only reasoning_content", () => {
     const reply = parseChatResponse(
       completion({
         content: "<think>secret plan</think>Looking up places.",
-        reasoning: "more secret",
-        reasoning_content: "even more",
+        reasoning: "other field",
+        reasoning_content: "kept for the provider",
       }),
     );
     expect(reply.text).toBe("Looking up places.");
-    expect(JSON.stringify(reply.assistantMessage)).not.toMatch(/secret|even more/);
+    expect(reply.assistantMessage.content).toBe("Looking up places.");
+    expect(JSON.stringify(reply.assistantMessage)).not.toMatch(/secret plan|other field/);
+    expect(reply.assistantMessage.reasoning_content).toBe("kept for the provider");
     expect(stripReasoning("<think>never closed")).toBe("");
+  });
+
+  it("sends reasoning_content back on the next request (DeepSeek thinking mode with tools)", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return bodies.length === 1
+        ? jsonResponse(
+            completion(
+              {
+                content: null,
+                reasoning_content: "step by step",
+                tool_calls: [{ id: "c1", type: "function", function: { name: "search_entities", arguments: '{"query":"a"}' } }],
+              },
+              "tool_calls",
+            ),
+          )
+        : jsonResponse(completion({ content: "done" }));
+    });
+    const client = clientWith(fetchImpl as unknown as typeof fetch);
+    const first = await client.chat(MESSAGES, TOOLS);
+    await client.chat([...MESSAGES, first.assistantMessage, { role: "tool", tool_call_id: "c1", content: "{}" }], TOOLS);
+    const history = bodies[1].messages as Record<string, unknown>[];
+    expect(history[2]).toMatchObject({ role: "assistant", reasoning_content: "step by step" });
+  });
+
+  it("reports token usage when the provider sends it", () => {
+    const reply = parseChatResponse({
+      ...completion({ content: "hi" }),
+      usage: { prompt_tokens: 120, completion_tokens: 30, total_tokens: 150 },
+    });
+    expect(reply.usage).toEqual({ promptTokens: 120, completionTokens: 30, totalTokens: 150 });
+    expect(parseChatResponse(completion({ content: "hi" })).usage).toBeNull();
   });
 
   it("reads content sent as an array of parts and skips reasoning parts", () => {
@@ -190,6 +226,27 @@ describe("response parsing", () => {
   it("rejects a body without choices", () => {
     expect(() => parseChatResponse({ choices: [] })).toThrow(LlmError);
     expect(() => parseChatResponse(null)).toThrow(LlmError);
+  });
+});
+
+describe("temperature and thinking switch", () => {
+  it("sends temperature only when configured, including 0", () => {
+    expect(buildChatRequest("m", MESSAGES, TOOLS, undefined)).not.toHaveProperty("temperature");
+    expect(buildChatRequest("m", MESSAGES, TOOLS, null)).not.toHaveProperty("temperature");
+    expect(buildChatRequest("m", MESSAGES, TOOLS, 0)).toMatchObject({ temperature: 0 });
+    expect(buildChatRequest("m", MESSAGES, TOOLS, 0.7)).toMatchObject({ temperature: 0.7 });
+  });
+
+  it("sends the thinking switch only when configured", () => {
+    expect(buildChatRequest("m", MESSAGES, TOOLS, null, "disabled")).toMatchObject({ thinking: { type: "disabled" } });
+    expect(buildChatRequest("m", MESSAGES, TOOLS, null, null)).not.toHaveProperty("thinking");
+  });
+
+  it("passes both options through the client", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(completion({ content: "hi" })));
+    await clientWith(fetchImpl as unknown as typeof fetch, { temperature: 0.4, thinking: "disabled" }).chat(MESSAGES, TOOLS);
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({ temperature: 0.4, thinking: { type: "disabled" } });
   });
 });
 

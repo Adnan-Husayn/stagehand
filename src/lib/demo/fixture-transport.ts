@@ -33,12 +33,76 @@ function clampTake(raw: string | null, fallback: number): number {
   return Number.isFinite(n) ? Math.min(50, Math.max(1, n)) : fallback;
 }
 
+/** Entity kinds the app supports, plus the long-form URNs the client sends. */
+const SHORT_TYPES: Record<string, string> = {
+  artist: ENTITY_TYPE_URN.artist,
+  place: ENTITY_TYPE_URN.place,
+  brand: ENTITY_TYPE_URN.brand,
+  podcast: ENTITY_TYPE_URN.podcast,
+  movie: ENTITY_TYPE_URN.movie,
+  tv_show: ENTITY_TYPE_URN.tv_show,
+  locality: ENTITY_TYPE_URN.locality,
+};
+
+/** Types Qloo documents for filter.type that Stagehand does not use. The fixtures hold no records for them. */
+const OTHER_DOCUMENTED_TYPES = new Set(["book", "destination", "person", "video_game"]);
+
+function normaliseType(raw: string): string {
+  const trimmed = raw.trim();
+  const short = trimmed.replace(/^urn:entity:/, "");
+  return SHORT_TYPES[short] ?? trimmed;
+}
+
+function words(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/**
+ * Orders a pool for a search query. Names that contain the whole query come first (the scripted
+ * demo relies on this). Then names whose every word appears in the query, so a model that searches
+ * "Velvet Anchor indie band" still finds "Velvet Anchor". The rest follow in a stable pseudo-random order.
+ */
+function orderForSearch(pool: FixtureEntity[], query: string, types: string[]): FixtureEntity[] {
+  const needle = query.trim().toLowerCase();
+  const substring = needle ? pool.filter((e) => e.name.toLowerCase().includes(needle)) : [];
+  const queryWords = new Set(words(query));
+  const wordMatch = pool.filter((e) => {
+    if (substring.includes(e)) return false;
+    const nameWords = words(e.name);
+    return nameWords.length > 0 && nameWords.every((w) => queryWords.has(w));
+  });
+  const used = new Set([...substring, ...wordMatch]);
+  const rest = rankDeterministically(
+    pool.filter((e) => !used.has(e)),
+    `search|${query}|${types.join(",")}`,
+  );
+  return [...substring, ...wordMatch, ...rest];
+}
+
+function listParam(params: URLSearchParams, key: string): string[] {
+  return (params.get(key) ?? "").split(",").map((v) => v.trim()).filter(Boolean);
+}
+
+/**
+ * Sample-data stand-in for the Qloo API. It answers any well-formed /search or /v2/insights call for
+ * the entity kinds Stagehand uses, so a real model can be tested against it. Results are fictional,
+ * deterministic for a given request, and every id starts with "sample-". It does not enforce
+ * grounding: the tools and validators do that.
+ */
 export function fixtureTransport(): QlooTransport {
   return {
     async request(path, params) {
       if (path === "/search") {
-        const types = (params.get("types") ?? "").split(",").filter(Boolean);
+        const rawTypes = listParam(params, "types");
+        const types = rawTypes.map(normaliseType);
         const query = params.get("query") ?? "";
+        if (query.trim() === "") {
+          return { status: 400, body: { message: "query is required" } };
+        }
         const take = clampTake(params.get("take"), 10);
         if (types.includes(ENTITY_TYPE_URN.locality)) {
           return {
@@ -47,17 +111,7 @@ export function fixtureTransport(): QlooTransport {
           };
         }
         const pool = types.flatMap((t) => poolForType(t));
-        if (pool.length === 0) {
-          return { status: 404, body: { code: 404, reason: "Not Found", message: "No results" } };
-        }
-        const needle = query.trim().toLowerCase();
-        const matched = needle ? pool.filter((e) => e.name.toLowerCase().includes(needle)) : [];
-        const rest = rankDeterministically(
-          pool.filter((e) => !matched.includes(e)),
-          `search|${query}|${types.join(",")}`,
-        );
-        const ranked = [...matched, ...rest];
-        const results = ranked.slice(0, take).map(toApi);
+        const results = orderForSearch(pool, query, types).slice(0, take).map(toApi);
         if (results.length === 0) {
           return { status: 404, body: { code: 404, reason: "Not Found", message: "No results" } };
         }
@@ -65,20 +119,29 @@ export function fixtureTransport(): QlooTransport {
       }
 
       if (path === "/v2/insights") {
-        const type = params.get("filter.type");
-        if (!type) {
+        const rawType = params.get("filter.type");
+        if (!rawType) {
           return { status: 400, body: { message: "filter.type is required" } };
         }
-        const seeds = (params.get("signal.interests.entities") ?? "").split(",").filter(Boolean);
+        const type = normaliseType(rawType);
+        const known = poolForType(type).length > 0;
+        if (!known && !OTHER_DOCUMENTED_TYPES.has(rawType.replace(/^urn:entity:/, ""))) {
+          return { status: 400, body: { message: `filter.type "${rawType}" is not a valid entity type` } };
+        }
+        const seeds = listParam(params, "signal.interests.entities");
         const location = params.get("filter.location") ?? "";
         const signalLocation = params.get("signal.location.query") ?? "";
-        const excluded = new Set((params.get("filter.exclude.entities") ?? "").split(",").filter(Boolean));
-        if (seeds.length === 0 && !location && !signalLocation && !params.get("filter.geocode.name")) {
+        const geocode = params.get("filter.geocode.name") ?? "";
+        if (seeds.length === 0 && !location && !signalLocation && !geocode) {
           return { status: 400, body: { message: "at least one valid signal or filter is required" } };
         }
         const take = clampTake(params.get("take"), 20);
+        const excluded = new Set(listParam(params, "filter.exclude.entities"));
         const pool = poolForType(type).filter((e) => !excluded.has(e.id));
-        const ranked = rankDeterministically(pool, `insights|${type}|${seeds.join(",")}|${location}|${signalLocation}`);
+        const ranked = rankDeterministically(
+          pool,
+          `insights|${type}|${seeds.join(",")}|${location}|${signalLocation}|${geocode}`,
+        );
         return {
           status: 200,
           body: {

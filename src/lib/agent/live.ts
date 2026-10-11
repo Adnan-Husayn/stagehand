@@ -18,7 +18,7 @@ export interface LiveRunArgs {
 /** Longest tool result sent back to the model. Free tiers cap tokens per minute, so large results are cut. */
 const MAX_TOOL_RESULT_CHARS = 12_000;
 
-function toToolDefinitions(tools: AgentTool[]): ToolDefinition[] {
+export function toToolDefinitions(tools: AgentTool[]): ToolDefinition[] {
   return tools.map((tool) => ({
     name: tool.name,
     description: tool.description,

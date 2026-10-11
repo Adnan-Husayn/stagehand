@@ -55,9 +55,24 @@ Without keys the app runs in demo mode.
 | `LLM_API_KEY` | For live mode | none | Key for the model provider, sent as a Bearer token. The default provider is Google's Gemini API. |
 | `LLM_BASE_URL` | No | `https://generativelanguage.googleapis.com/v1beta/openai` | Base URL of any OpenAI-compatible API. Stagehand posts to `{base}/chat/completions`. |
 | `LLM_MODEL` | No | `gemini-3.5-flash-lite` | Any model id the provider offers that supports tool calling. |
+| `LLM_TEMPERATURE` | No | not sent | A number from 0 to 2. When unset, Stagehand sends no temperature and the provider default applies. Google advises leaving Gemini 3 at its default of 1.0. |
+| `LLM_THINKING` | No | not sent | `enabled` or `disabled`. Sends DeepSeek's `thinking` switch. Only DeepSeek documents it, so leave it unset for other providers. |
 | `DEBUG_QLOO` | No | unset | Set to `1` to log response key names (never values). Useful on a first live run. |
 
 Keys are read on the server only. `.env*` files are git-ignored except `.env.example`.
+
+### Using DeepSeek (paid)
+
+DeepSeek is a paid, low-cost option. Set three values, and add a fourth that I recommend:
+
+```
+LLM_API_KEY=<your DeepSeek key>
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-flash
+LLM_THINKING=disabled
+```
+
+DeepSeek turns thinking on by default, which adds latency and output tokens. With it on, Stagehand still works: it sends each reply's `reasoning_content` back, as DeepSeek requires when tools are in the request. My estimate for one session (a shortlist plus one promo plan) on `deepseek-flash` is 1 to 3 US cents. It is an estimate from assumed token counts, not a measurement. Prices, limits and sources are in [`docs/MODEL_PROVIDERS.md`](docs/MODEL_PROVIDERS.md). Nothing has been run against DeepSeek yet.
 
 ### Getting a free model key
 
@@ -73,7 +88,44 @@ To use Groq instead, create a key at https://console.groq.com/keys and set `LLM_
 
 ## Scripts and tests
 
-`npm run dev`, `npm run build`, `npm run typecheck` (`tsc --noEmit`), `npm run lint` and `npm test`. The Vitest suite runs offline. It covers the validators, the response normaliser, the local place fallback chain, the demo sequence, the model client (with a mocked `fetch`) and an end-to-end run of the live loop with a scripted fake model.
+`npm run dev`, `npm run build`, `npm run typecheck` (`tsc --noEmit`), `npm run lint`, `npm test` and `npm run live:check`. The Vitest suite behind `npm test` runs offline. It covers the validators, the response normaliser, the local place fallback chain, the demo sequence, the sample-data Qloo transport, the model client (with a mocked `fetch`), the live-check helpers and an end-to-end run of the live loop with a scripted fake model. `npm run live:check` is separate and sends real requests, so `npm test` never runs it.
+
+### Live model check
+
+This is for developers. It tests the model half of the app against a real provider, so it works without a Qloo key. It uses the real system prompts, the real tools and validators, and the sample-data Qloo transport from demo mode. The real Qloo API is not called.
+
+It does three things:
+
+1. Sends one request per tool list (shortlist and promo) with the full system prompt and every tool schema, and checks that the provider accepts it.
+2. Runs the shortlist loop and then the promo loop three times each, printing every turn: the tool called, whether its arguments parsed cleanly or needed repair, the result, and any validator rejection.
+3. Prints a table with how many runs gave a valid result, the median model turns, the median seconds, tokens per run if the provider reports them, and the rate-limit headers it saw.
+
+To run it:
+
+1. Put the model key, and nothing else, on the first line of a text file outside the project. I suggest `~/Desktop/GeminiAPIKey.txt` or `~/Desktop/DeepSeekAPIKey.txt`. Delete the file when you are done.
+2. Run one of these from the project folder:
+
+```bash
+LIVE_LLM=1 LIVE_PROVIDER=gemini LLM_KEY_FILE=~/Desktop/GeminiAPIKey.txt npm run live:check
+LIVE_LLM=1 LIVE_PROVIDER=deepseek LLM_KEY_FILE=~/Desktop/DeepSeekAPIKey.txt npm run live:check
+```
+
+The script reads the key from the file. It never prints or saves it, and you should not put it on the command line. Without `LIVE_LLM=1` the test is skipped.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `LIVE_LLM` | unset | Must be `1`, or the check is skipped. |
+| `LLM_KEY_FILE` | none | Path to the key file. Required. |
+| `LIVE_PROVIDER` | `gemini` | `gemini` or `deepseek`. Sets the base URL, model and thinking switch. |
+| `LLM_BASE_URL`, `LLM_MODEL`, `LLM_TEMPERATURE`, `LLM_THINKING` | from the preset | Override the preset. |
+| `LIVE_RUNS` | 3 | Runs per loop. Use 2 on a model with a small daily quota. |
+| `LIVE_MAX_REQUESTS` | 80 | Hard cap on model requests, retries included. The check stops at the cap. |
+| `LIVE_MIN_INTERVAL_MS` | 4000 | Minimum gap between requests. |
+| `LIVE_DAILY_REQUESTS` | unset | Your daily request quota. When set, the summary estimates sessions per day. |
+
+A passing run shows `accepted` for both schema requests, `outcome: VALID` for most runs, a summary table, and a last line of `LIVE CHECK PASSED`. It passes when the provider accepts the schemas and at least two thirds of the runs of each kind give a valid result. A full default run sends roughly 50 to 70 requests with a good model and takes several minutes at 4 seconds apart. The check stops early if the provider reports that the daily quota is used up.
+
+The seconds in the table leave out the waiting this tool adds between requests, so they are comparable to a deployed run. The deployed function stops at 300 seconds.
 
 `GET /api/health` returns `{"ok": true}` and reads no configuration. `GET /api/status` reports demo mode and the model name, never keys.
 
@@ -88,7 +140,8 @@ A live run makes several sequential calls and can take a minute or more. The age
 
 ## Known limits
 
-- **The live path has not been run** against the Qloo hackathon API or a real model, so response shapes and tool-calling behaviour are unverified. The normaliser accepts several envelopes. Run once with `DEBUG_QLOO=1` to confirm the real one.
+- **The live path has not been run** against the Qloo hackathon API or a real model, so response shapes and tool-calling behaviour are unverified. The loop has run end to end only with a scripted stand-in model, and the live check has only run against a local stand-in server. Run `npm run live:check` once you have a model key, and run the app once with `DEBUG_QLOO=1` to confirm Qloo's real response shape. The normaliser accepts several envelopes.
+- **Model compatibility is unverified.** I have not confirmed that Gemini or DeepSeek accept Stagehand's tool schemas, how reliably either finishes a run, how long a run takes, or what a run costs. The DeepSeek cost in the docs is an estimate from assumed token counts.
 - **Some filters are unverified.** Locality-id place filters and city-name geocode parameters are not confirmed for `/search` or artist calls. Qloo ignores invalid parameters, so check the strategy in the activity trace to see whether results are local.
 - **The artist location signal is experimental.** Its results are labelled, and an artist found only through it is rejected.
 - **Scores come from Qloo.** Stagehand does not compute affinity.
@@ -97,6 +150,8 @@ A live run makes several sequential calls and can take a minute or more. The age
 - **Free models are weaker at tool calling.** Stagehand repairs malformed arguments, sends one reminder if the model answers in plain text, and rejects a submit that comes before any Qloo call. A small model can still fail a run. Try again, or set `LLM_MODEL` to a stronger one.
 - **Free tiers are rate limited.** On HTTP 429 the client retries up to three times, waiting at most about 20 seconds in total, then shows "model provider is rate limited". A free daily quota that runs out stays out until the provider resets it.
 - **Model requests time out after 60 seconds.** Google may use free-tier prompts to improve its products.
+- **Temperature is not sent by default.** Google advises leaving Gemini 3 at its default. If a model makes sloppy tool arguments, set `LLM_TEMPERATURE` and compare with the live check.
+- **The sample-data Qloo transport is lenient.** It answers any well-formed call with fictional data, so it cannot show whether Qloo's real filters work.
 - **No accounts or persistence.** Results exist only in the open browser tab.
 - **Qloo data stays out of git.** Stagehand writes no response data to disk. Do not commit real responses.
 

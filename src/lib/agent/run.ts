@@ -11,6 +11,9 @@ import { promoTools, shortlistTools } from "./tools";
 import { promoUserMessage, PROMO_SYSTEM, SHORTLIST_SYSTEM, shortlistUserMessage } from "./prompts";
 import type { Emit } from "./types";
 
+/** Most model turns one run may take. */
+export const MAX_TURNS = 14;
+
 /** Runs one Stagehand job and streams trace events. Returns after the result event is emitted. */
 export async function runStagehand(request: StartRequest, emit: Emit): Promise<void> {
   const config = getConfig();
@@ -52,6 +55,8 @@ export async function runStagehand(request: StartRequest, emit: Emit): Promise<v
         apiKey: config.llmApiKey ?? "",
         baseUrl: config.llmBaseUrl,
         model: config.llmModel,
+        temperature: config.llmTemperature,
+        thinking: config.llmThinking,
       }),
       system: request.mode === "shortlist" ? SHORTLIST_SYSTEM : PROMO_SYSTEM,
       userMessage:
@@ -61,7 +66,7 @@ export async function runStagehand(request: StartRequest, emit: Emit): Promise<v
       tools,
       ctx,
       finalTool,
-      maxTurns: 14,
+      maxTurns: MAX_TURNS,
       emit,
     });
   }

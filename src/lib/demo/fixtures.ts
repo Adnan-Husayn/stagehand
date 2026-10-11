@@ -101,6 +101,17 @@ export const SAMPLE_MOVIES = make("movie", [
   ["Under the Overpass", 0.48],
 ]);
 
+export const SAMPLE_TV_SHOWS = make("tv_show", [
+  ["Backroads Beat", 0.76],
+  ["The Green Room Years", 0.71],
+  ["Harbor Lights", 0.67],
+  ["Sundown Sessions", 0.63],
+  ["Small Town Static", 0.6],
+  ["Ferry Street", 0.56],
+  ["The Late Set", 0.52],
+  ["Copperfield Diaries", 0.47],
+]);
+
 export function sampleLocalityFor(query: string): FixtureEntity {
   const cleaned = query.trim().replace(/\s+/g, " ") || "Sample City";
   const name = cleaned;
@@ -119,6 +130,8 @@ export function poolForType(typeUrn: string): FixtureEntity[] {
       return SAMPLE_PODCASTS;
     case ENTITY_TYPE_URN.movie:
       return SAMPLE_MOVIES;
+    case ENTITY_TYPE_URN.tv_show:
+      return SAMPLE_TV_SHOWS;
     default:
       return [];
   }

@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "live:check": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
     "next": "15.5.27",

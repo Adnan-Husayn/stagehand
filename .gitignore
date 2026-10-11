@@ -20,3 +20,6 @@ debug-dumps/
 next-env.d.ts
 .DS_Store
 .vercel
+
+# Temporary live-check key pulled from Vercel. Deleted after use.
+.env.livecheck

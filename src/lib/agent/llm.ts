@@ -26,7 +26,13 @@ export interface RawToolCall {
 
 export type ChatMessage =
   | { role: "system" | "user"; content: string }
-  | { role: "assistant"; content: string | null; tool_calls?: RawToolCall[] }
+  | {
+      role: "assistant";
+      content: string | null;
+      tool_calls?: RawToolCall[];
+      /** DeepSeek in thinking mode returns this and requires it back on every later request when tools are sent. */
+      reasoning_content?: string;
+    }
   | { role: "tool"; tool_call_id: string; content: string };
 
 export interface ToolDefinition {
@@ -49,17 +55,25 @@ export interface ChatReply {
   finishReason: string | null;
   /** The message to append to the history before sending tool results. */
   assistantMessage: Extract<ChatMessage, { role: "assistant" }>;
+  /** Token counts for this request, when the provider reports them. */
+  usage: TokenUsage | null;
 }
 
 export interface LlmClient {
   chat(messages: ChatMessage[], tools: ToolDefinition[]): Promise<ChatReply>;
 }
 
+/** Whether to send the DeepSeek-style `thinking` switch. Null leaves the provider default. */
+export type ThinkingSwitch = "enabled" | "disabled";
+
 export interface LlmClientOptions {
   apiKey: string;
   baseUrl: string;
   model: string;
-  temperature?: number;
+  /** Sent as `temperature` when set. Left out when null or undefined, so the provider default applies. */
+  temperature?: number | null;
+  /** Sent as `thinking: {type}` when set. Only DeepSeek documents this field. */
+  thinking?: ThinkingSwitch | null;
   timeoutMs?: number;
   maxAttempts?: number;
   /** Total time spent waiting between retries. A longer wait is not attempted. */
@@ -116,14 +130,38 @@ export function buildChatRequest(
   model: string,
   messages: ChatMessage[],
   tools: ToolDefinition[],
-  temperature: number,
+  temperature: number | null | undefined,
+  thinking?: ThinkingSwitch | null,
 ): Json {
   return {
     model,
     messages,
     ...(tools.length > 0 ? { tools: toChatTools(tools), tool_choice: "auto" } : {}),
-    temperature,
+    // Gemini 3 docs advise leaving temperature at its default, so the field is omitted unless set.
+    ...(typeof temperature === "number" ? { temperature } : {}),
+    ...(thinking ? { thinking: { type: thinking } } : {}),
     stream: false,
+  };
+}
+
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+/** Reads the OpenAI-style usage block. Returns null when the provider sent none. */
+export function parseUsage(body: unknown): TokenUsage | null {
+  if (!isObject(body) || !isObject(body.usage)) return null;
+  const usage = body.usage;
+  const prompt = typeof usage.prompt_tokens === "number" ? usage.prompt_tokens : null;
+  const completion = typeof usage.completion_tokens === "number" ? usage.completion_tokens : null;
+  const total = typeof usage.total_tokens === "number" ? usage.total_tokens : null;
+  if (prompt === null && completion === null && total === null) return null;
+  return {
+    promptTokens: prompt ?? 0,
+    completionTokens: completion ?? 0,
+    totalTokens: total ?? (prompt ?? 0) + (completion ?? 0),
   };
 }
 
@@ -207,13 +245,17 @@ export function parseChatResponse(body: unknown): ChatReply {
   const text = stripReasoning(contentToText(message.content));
   const { parsed, echo } = normaliseToolCalls(message.tool_calls, new Set<string>());
   const finishReason = typeof choice.finish_reason === "string" ? choice.finish_reason : null;
-  // Only content and tool_calls go back into the history. Reasoning fields are never echoed.
+  // Content and tool_calls go back into the history. Of the reasoning fields only reasoning_content is echoed,
+  // because DeepSeek rejects the next request with a 400 if it is missing while tools are sent.
+  const reasoningContent =
+    typeof message.reasoning_content === "string" && message.reasoning_content !== "" ? message.reasoning_content : null;
   const assistantMessage: ChatReply["assistantMessage"] = {
     role: "assistant",
     content: text === "" ? null : text,
     ...(echo.length > 0 ? { tool_calls: echo } : {}),
+    ...(reasoningContent !== null ? { reasoning_content: reasoningContent } : {}),
   };
-  return { text, toolCalls: parsed, finishReason, assistantMessage };
+  return { text, toolCalls: parsed, finishReason, assistantMessage, usage: parseUsage(body) };
 }
 
 function providerErrorText(body: unknown): string {
@@ -247,7 +289,8 @@ function shortSnippet(text: string): string {
 export function createLlmClient(options: LlmClientOptions): LlmClient {
   const base = options.baseUrl.replace(/\/+$/, "");
   const url = `${base}/chat/completions`;
-  const temperature = options.temperature ?? 0.2;
+  const temperature = options.temperature ?? null;
+  const thinking = options.thinking ?? null;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const maxTotalWaitMs = options.maxTotalWaitMs ?? DEFAULT_MAX_TOTAL_WAIT_MS;
@@ -293,7 +336,7 @@ export function createLlmClient(options: LlmClientOptions): LlmClient {
 
   return {
     async chat(messages, tools) {
-      const payload = JSON.stringify(buildChatRequest(options.model, messages, tools, temperature));
+      const payload = JSON.stringify(buildChatRequest(options.model, messages, tools, temperature, thinking));
       let waited = 0;
       for (let tryNo = 1; ; tryNo++) {
         const { response, body } = await attempt(payload);
