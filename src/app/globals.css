@@ -3,142 +3,99 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
-  --grain-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.95 0 0 0 0 0.85 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E");
-  --grain-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.25 0 0 0 0 0.18 0 0 0 0 0.08 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.13'/%3E%3C/svg%3E");
-}
-
-/* Stands in for the display face until it loads, sized to the same average width. */
-@font-face {
-  font-family: "Stagehand Display Fallback";
-  src: local("Arial Bold"), local("Arial-BoldMT"), local("Arial");
-  font-weight: 800;
-  size-adjust: 78.13%;
-  ascent-override: 125.95%;
-  descent-override: 27.26%;
-  line-gap-override: 0%;
+  color-scheme: light;
 }
 
 @layer base {
   html {
-    background-color: #0b0907;
+    background-color: #ffffff;
     -webkit-text-size-adjust: 100%;
   }
 
   body {
-    @apply bg-stage-950 font-sans text-bone-100 antialiased;
-    background-image:
-      radial-gradient(90rem 34rem at 50% -14rem, rgba(255, 204, 138, 0.11), transparent 70%),
-      var(--grain-light);
-    background-repeat: no-repeat, repeat;
+    @apply bg-paper font-sans text-base text-ink antialiased;
+    font-feature-settings: "tnum" 1;
   }
 
   :focus-visible {
-    outline: 2px solid #f4ecdc;
-    outline-offset: 3px;
+    outline: 2px solid #111111;
+    outline-offset: 2px;
   }
 
   ::selection {
-    background-color: #ee4231;
-    color: #17130e;
+    background-color: #111111;
+    color: #ffffff;
+  }
+
+  mark {
+    color: inherit;
   }
 }
 
 @layer components {
-  /* Warm paper surface. Controls inside it render in the light scheme. */
-  .paper {
-    @apply bg-paper-100 text-ink-900;
-    background-image: var(--grain-ink);
-    color-scheme: light;
+  /* Page gutters shared by the header, banner, main and footer. */
+  .shell {
+    @apply mx-auto w-full max-w-shell px-5 sm:px-8 lg:px-10;
   }
 
-  .paper :focus-visible {
-    outline-color: #17130e;
+  /* Page titles and artist names. */
+  .title {
+    @apply font-sans font-extrabold text-ink;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
   }
 
-  .letter {
-    @apply bg-paper-50 text-ink-900;
-    background-image: var(--grain-ink);
+  /* Small label above a block or a column. */
+  .label {
+    @apply text-sm font-semibold text-ink;
   }
 
-  /* Small mono caption used for labels, tags and meta lines. */
-  .caption {
-    @apply font-mono text-[0.6875rem] font-medium uppercase leading-4 tracking-[0.14em];
+  /* Mono figures: step numbers, durations, ids, scores. */
+  .figure {
+    @apply font-mono text-xs tabular-nums;
   }
 
-  .display {
-    @apply font-display font-extrabold uppercase;
-    letter-spacing: 0.01em;
-    line-height: 0.92;
+  .btn-primary,
+  .btn-secondary {
+    @apply inline-flex shrink-0 items-center justify-center gap-2.5 rounded border border-ink px-4 text-base font-semibold text-ink transition-colors duration-100;
   }
 
-  .btn-ghost {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-sm border border-stage-600 px-4 text-sm font-medium text-bone-100 transition-colors duration-150 hover:border-bone-300 hover:bg-stage-850;
+  .btn-primary:disabled,
+  .btn-secondary:disabled {
+    @apply cursor-not-allowed opacity-50;
   }
 
-  .btn-signal {
-    @apply inline-flex items-center justify-center gap-3 rounded-sm bg-signal font-display font-extrabold uppercase tracking-wide text-ink-900 transition duration-150;
+  .btn-primary:not(:disabled):hover,
+  .btn-secondary:not(:disabled):hover {
+    @apply bg-ink text-paper;
   }
 
-  /* Ticket with a notch cut at each end of the perforation. */
-  .ticket {
-    --stub: 4.5rem;
-    --notch: 0.5rem;
-    -webkit-mask-image:
-      radial-gradient(circle var(--notch) at var(--stub) 0, transparent 97%, #000 100%),
-      radial-gradient(circle var(--notch) at var(--stub) 100%, transparent 97%, #000 100%);
-    -webkit-mask-composite: source-in;
-    mask-image:
-      radial-gradient(circle var(--notch) at var(--stub) 0, transparent 97%, #000 100%),
-      radial-gradient(circle var(--notch) at var(--stub) 100%, transparent 97%, #000 100%);
-    mask-composite: intersect;
+  /* The main action of a screen. */
+  .btn-primary {
+    @apply min-h-12 bg-mark px-5;
   }
 
-  @media (min-width: 640px) {
-    .ticket {
-      --stub: 7rem;
-      --notch: 0.625rem;
-    }
+  .btn-secondary {
+    @apply min-h-10 bg-paper;
   }
 
-  .perforation {
-    background-image: linear-gradient(to bottom, rgba(23, 19, 14, 0.45) 55%, transparent 55%);
-    background-size: 2px 9px;
-    background-repeat: repeat-y;
+  /* An action set as text, for places where a box would be too loud. */
+  .btn-text {
+    @apply inline-flex min-h-10 items-center gap-2 rounded text-sm font-semibold text-ink underline decoration-rule decoration-1 underline-offset-4 transition-colors duration-100 hover:decoration-ink;
   }
 
-  .tear-line {
-    background-image: linear-gradient(to right, rgba(23, 19, 14, 0.45) 55%, transparent 55%);
-    background-size: 9px 2px;
-    background-repeat: repeat-x;
+  .input {
+    @apply block h-12 w-full min-w-0 rounded border border-field bg-paper px-3 text-input text-ink transition-colors duration-100 placeholder:text-ink-3 hover:border-ink focus:border-ink;
   }
 
-  .hazard {
-    background-image: repeating-linear-gradient(-45deg, #17130e 0 6px, transparent 6px 12px);
-  }
-
-  .halftone {
-    background-image: radial-gradient(circle at center, rgba(244, 236, 220, 0.5) 1px, transparent 1.6px);
-    background-size: 9px 9px;
-    -webkit-mask-image: radial-gradient(ellipse at 70% 20%, #000 0%, transparent 68%);
-    mask-image: radial-gradient(ellipse at 70% 20%, #000 0%, transparent 68%);
-  }
-
-  .shimmer-dark {
-    background-image: linear-gradient(100deg, transparent 30%, rgba(244, 236, 220, 0.07) 50%, transparent 70%);
-    background-size: 220% 100%;
-    @apply animate-shimmer;
-  }
-
-  .shimmer-paper {
-    background-image: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
-    background-size: 220% 100%;
-    @apply animate-shimmer;
+  .input[aria-invalid="true"] {
+    @apply border-stop;
+    box-shadow: inset 0 0 0 1px #b3261e;
   }
 
   .scroll-quiet {
     scrollbar-width: thin;
-    scrollbar-color: #4a4133 transparent;
+    scrollbar-color: #d6d6d6 transparent;
   }
 }
 
@@ -146,14 +103,8 @@
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
-    animation-iteration-count: 1 !important;
+    animation: none !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-
-  .meter-bar {
-    animation: none !important;
   }
 }

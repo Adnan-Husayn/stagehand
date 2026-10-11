@@ -12,8 +12,8 @@ import type {
   VenueProfile,
 } from "@/lib/types/stagehand";
 import { ActivityPanel } from "./ActivityPanel";
-import { ArtistCard } from "./ArtistCard";
-import { Arrow, LevelMeter, SpikeMark } from "./Brand";
+import { ArtistCard, LINEUP_GRID } from "./ArtistCard";
+import { Arrow, LineupMark, LiveDot } from "./Brand";
 import { DemoBanner } from "./DemoBanner";
 import { PromoDetail } from "./PromoDetail";
 import { VenueForm } from "./VenueForm";
@@ -22,7 +22,7 @@ type View = "input" | "results" | "detail";
 
 const MAX_TRACE_STEPS = 300;
 
-const HEADING_SIZE = "text-[clamp(2.5rem,8.5vw,4.25rem)]";
+const PAGE_TITLE = "title break-words text-2xl outline-none sm:text-3xl xl:text-4xl";
 
 const STEPS: { view: View; label: string }[] = [
   { view: "input", label: "Venue" },
@@ -32,7 +32,7 @@ const STEPS: { view: View; label: string }[] = [
 
 const HOW_IT_RUNS = [
   {
-    title: "Fill in the booking sheet",
+    title: "Fill in your venue",
     body: "Your city and capacity, plus up to five artists that sold well in your room.",
   },
   {
@@ -45,27 +45,46 @@ const HOW_IT_RUNS = [
   },
 ];
 
-function SkeletonTickets() {
+function LineupHeader({ count }: { count?: number }) {
   return (
-    <div className="space-y-3" aria-hidden="true">
+    <div className={`${LINEUP_GRID} items-baseline border-b border-ink pb-2 text-sm text-ink-3`} aria-hidden="true">
+      <span>No.</span>
+      <span className="flex items-baseline justify-between gap-4">
+        Artist
+        {count !== undefined && (
+          <span className="xl:hidden">
+            {count} {count === 1 ? "artist" : "artists"}, ranked
+          </span>
+        )}
+      </span>
+      <span className="hidden items-baseline justify-between gap-4 xl:flex">
+        Evidence from Qloo
+        {count !== undefined && (
+          <span>
+            {count} {count === 1 ? "artist" : "artists"}, ranked
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function SkeletonLineup() {
+  return (
+    <div aria-hidden="true">
+      <LineupHeader />
       {[1, 2, 3, 4].map((rank) => (
-        <div
-          key={rank}
-          className="ticket grid grid-cols-[4.5rem_minmax(0,1fr)] bg-stage-850 sm:grid-cols-[7rem_minmax(0,1fr)]"
-          style={{ opacity: 1 - (rank - 1) * 0.2 }}
-        >
-          <div className="flex flex-col items-center border-r border-dashed border-stage-600 pb-4 pt-5 sm:pt-6">
-            <span className="caption text-bone-500">Rank</span>
-            <span className="display mt-1 text-[3.25rem] text-stage-600 sm:text-[5rem]">{String(rank).padStart(2, "0")}</span>
+        <div key={rank} className={`${LINEUP_GRID} border-b border-rule py-6`}>
+          <span className="title text-lg text-rule sm:text-xl">{rank}</span>
+          <div className="animate-wait space-y-3 pt-1" style={{ animationDelay: `${rank * 120}ms` }}>
+            <div className="h-6 w-3/5 max-w-xs bg-wash" />
+            <div className="h-3 w-full max-w-md bg-wash" />
+            <div className="h-3 w-4/5 max-w-sm bg-wash" />
           </div>
-          <div className="shimmer-dark space-y-3 px-4 py-6 sm:px-7">
-            <div className="h-8 w-3/5 max-w-xs bg-stage-700" />
-            <div className="h-3 w-full max-w-md bg-stage-800" />
-            <div className="h-3 w-4/5 max-w-sm bg-stage-800" />
-            <div className="flex gap-2 pt-2">
-              <div className="h-6 w-28 bg-stage-800" />
-              <div className="h-6 w-20 bg-stage-800" />
-            </div>
+          <div className="hidden animate-wait space-y-3 pt-2 xl:block" style={{ animationDelay: `${rank * 120}ms` }}>
+            <div className="h-3 w-full bg-wash" />
+            <div className="h-3 w-full bg-wash" />
+            <div className="h-3 w-2/3 bg-wash" />
           </div>
         </div>
       ))}
@@ -75,22 +94,14 @@ function SkeletonTickets() {
 
 function SkeletonPlan() {
   return (
-    <div className="paper shadow-sheet" aria-hidden="true">
+    <div aria-hidden="true">
       {["Partners", "Ad audiences", "Booking inquiry"].map((title, index) => (
-        <div
-          key={title}
-          className={`px-5 pb-9 pt-5 sm:px-9 ${index === 0 ? "" : "border-t-2 border-ink-900/40"}`}
-          style={{ opacity: 1 - index * 0.25 }}
-        >
-          <div className="flex items-baseline gap-3 sm:gap-4">
-            <span className="display text-3xl text-ink-900/25 sm:text-4xl">{String(index + 1).padStart(2, "0")}</span>
-            <span className="display text-3xl text-ink-900/35 sm:text-4xl">{title}</span>
-          </div>
-          <div className="shimmer-paper mt-6 space-y-3">
-            <div className="h-6 w-1/2 max-w-xs bg-ink-900/10" />
-            <div className="h-3 w-full max-w-lg bg-ink-900/10" />
-            <div className="h-3 w-4/5 max-w-md bg-ink-900/10" />
-            <div className="h-3 w-2/3 max-w-sm bg-ink-900/10" />
+        <div key={title} className="border-t-2 border-rule pb-12 pt-3">
+          <p className="title text-lg text-ink-3">{title}</p>
+          <div className="mt-5 animate-wait space-y-3" style={{ animationDelay: `${index * 160}ms` }}>
+            <div className="h-5 w-1/2 max-w-xs bg-wash" />
+            <div className="h-3 w-full max-w-lg bg-wash" />
+            <div className="h-3 w-4/5 max-w-md bg-wash" />
           </div>
         </div>
       ))}
@@ -100,8 +111,8 @@ function SkeletonPlan() {
 
 function RunningNote({ children }: { children: string }) {
   return (
-    <p className="flex items-center gap-3 text-[0.9375rem] leading-snug text-bone-300" role="status">
-      <LevelMeter className="h-4 shrink-0 text-tape-400" />
+    <p className="flex items-baseline gap-2.5 text-base text-ink-2" role="status">
+      <LiveDot className="translate-y-[-1px]" />
       {children}
     </p>
   );
@@ -109,16 +120,12 @@ function RunningNote({ children }: { children: string }) {
 
 function ErrorPanel({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div role="alert" className="animate-view-in border border-signal/60 border-l-4 border-l-signal bg-stage-900 px-5 py-5">
-      <p className="caption text-signal-400">Run stopped</p>
-      <p className="mt-2 text-lg font-semibold text-bone-100">Stagehand could not finish this run.</p>
-      <p className="mt-1.5 break-words text-[0.9375rem] leading-relaxed text-bone-300">{message}</p>
+    <div role="alert" className="animate-view-in border-t-2 border-stop pt-3">
+      <p className="text-sm font-semibold text-stop">Run stopped</p>
+      <p className="title mt-2 text-lg">Stagehand could not finish this run.</p>
+      <p className="mt-1.5 max-w-[62ch] break-words text-base text-ink-2">{message}</p>
       {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="btn-signal mt-5 min-h-11 px-5 text-lg hover:bg-signal-400"
-        >
+        <button type="button" onClick={onRetry} className="btn-primary mt-5">
           Try again
         </button>
       )}
@@ -129,19 +136,17 @@ function ErrorPanel({ message, onRetry }: { message: string; onRetry?: () => voi
 function ProgressSteps({ view }: { view: View }) {
   const current = STEPS.findIndex((step) => step.view === view);
   return (
-    <ol className="hidden items-center gap-3 md:flex" aria-label="Progress">
+    <ol className="hidden items-baseline gap-5 text-sm md:flex" aria-label="Progress">
       {STEPS.map((step, index) => {
         const active = index === current;
-        const done = index < current;
         return (
-          <li key={step.view} className="flex items-center gap-3" aria-current={active ? "step" : undefined}>
-            {index > 0 && <span className={`h-px w-6 ${done || active ? "bg-bone-400" : "bg-stage-600"}`} aria-hidden="true" />}
-            <span
-              className={`caption flex items-center gap-2 ${active ? "text-bone-100" : done ? "text-bone-400" : "text-bone-500"}`}
-            >
-              <span className={active ? "text-signal-400" : undefined}>{String(index + 1).padStart(2, "0")}</span>
-              {step.label}
-            </span>
+          <li
+            key={step.view}
+            className={`flex items-baseline gap-1.5 ${active ? "font-semibold text-ink" : "text-ink-3"}`}
+            aria-current={active ? "step" : undefined}
+          >
+            <span className="figure font-normal">{index + 1}</span>
+            {step.label}
           </li>
         );
       })}
@@ -275,40 +280,23 @@ export function StagehandApp() {
   const venueLine = venue
     ? [venue.venueName, venue.city, `Capacity ${venue.capacity}`].filter((part) => part.length > 0)
     : [];
-  const headingClass = "display break-words text-bone-100 outline-none";
-
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-stage-700">
-        <div className="mx-auto flex max-w-shell items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
-          <button
-            type="button"
-            onClick={startOver}
-            className="flex items-center gap-3 rounded-sm text-left"
-            aria-label="Stagehand home"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-stage-600 bg-stage-900">
-              <SpikeMark className="h-9 w-9" />
-            </span>
-            <span className="min-w-0">
-              <span className="display block text-[1.75rem] text-bone-100">Stagehand</span>
-              <span className="caption mt-0.5 hidden text-bone-500 lg:block">Booking and promotion for independent venues</span>
-            </span>
+      <header className="border-b border-ink">
+        <div className="shell flex min-h-14 items-center justify-between gap-4 py-2">
+          <button type="button" onClick={startOver} className="flex items-center gap-2.5 rounded text-left" aria-label="Stagehand home">
+            <LineupMark className="h-5 w-5 shrink-0" />
+            <span className="title text-lg">Stagehand</span>
           </button>
-          <div className="flex items-center gap-6">
+          <div className="flex items-baseline gap-7">
             <ProgressSteps view={view} />
             {status && (
-              <span
-                className={`caption inline-flex shrink-0 items-center gap-2 border px-2.5 py-1.5 ${
-                  demo ? "border-bone-400 text-bone-100" : "border-tape-400/60 text-tape-300"
-                }`}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${demo ? "bg-bone-400" : "bg-tape-400"}`} aria-hidden="true" />
+              <span className="inline-flex shrink-0 items-baseline gap-2 border border-ink px-2 py-0.5 font-mono text-xs font-semibold text-ink">
                 {demo ? (
                   "Demo mode"
                 ) : (
                   <>
-                    Live<span className="hidden xl:inline"> / Qloo and a language model</span>
+                    Live<span className="hidden font-normal xl:inline"> / Qloo and a language model</span>
                   </>
                 )}
               </span>
@@ -319,62 +307,36 @@ export function StagehandApp() {
 
       <DemoBanner visible={demo} />
 
-      <main className="mx-auto w-full max-w-shell flex-1 px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pt-12">
+      <main className="shell flex-1 pb-20 pt-8 lg:pt-10">
         {view === "input" && (
           <section
             key="input"
             aria-labelledby="start-heading"
-            className="relative grid animate-view-in gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,31rem)] lg:grid-rows-[auto_1fr] lg:gap-x-14 xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] xl:gap-x-20"
+            className="grid animate-view-in gap-y-14 lg:grid-cols-[minmax(0,40rem)_minmax(0,1fr)_19rem] lg:gap-x-10"
           >
-            <div className="halftone pointer-events-none absolute -top-12 right-0 hidden h-80 w-[36rem] lg:block" aria-hidden="true" />
-
-            <div className="relative lg:col-start-1 lg:row-start-1 lg:pt-4">
-              <p className="caption flex items-center gap-3 text-bone-400">
-                <span className="h-px w-8 bg-signal" aria-hidden="true" />
-                Taste data from Qloo
-              </p>
-              <h1
-                id="start-heading"
-                ref={headingRef}
-                tabIndex={-1}
-                className={`${headingClass} mt-5 text-[clamp(3rem,13.5vw,4.5rem)] lg:text-[clamp(4rem,6.6vw,6.75rem)]`}
-              >
-                Book the acts <span className="text-signal">your city</span> already has a taste for.
+            <div className="min-w-0">
+              <h1 id="start-heading" ref={headingRef} tabIndex={-1} className="title break-words text-2xl outline-none sm:text-3xl">
+                Shortlist artists for your venue, then plan the promotion.
               </h1>
-              <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-bone-300">
-                Stagehand asks Qloo which artists over-index with the crowds at live-music spots in your city and with
-                fans of acts that sold well for you. You get a ranked shortlist with the evidence behind each pick, then
-                a promo plan for the artist you choose.
+              <p className="mt-4 text-md text-ink-2">
+                Stagehand ranks artists for your city from Qloo taste data and shows the evidence behind each pick.
               </p>
-            </div>
-
-            <div className="relative lg:col-start-2 lg:row-span-2 lg:row-start-1">
-              <span
-                className="absolute -top-3 left-8 z-10 h-7 w-24 -rotate-3 bg-paper-300/80 shadow-sm"
-                aria-hidden="true"
-              />
-              <span
-                className="absolute -top-3 right-10 z-10 h-7 w-20 rotate-2 bg-paper-300/80 shadow-sm"
-                aria-hidden="true"
-              />
-              <div className="paper shadow-sheet">
+              <div className="mt-8">
                 <VenueForm disabled={running} onSubmit={startShortlist} showSample={demo} />
               </div>
             </div>
 
-            <div className="relative lg:col-start-1 lg:row-start-2">
-              <h2 className="caption text-bone-400">How a run goes</h2>
-              <ol className="mt-3 max-w-[34rem] border-b border-stage-700">
+            <div className="min-w-0 lg:col-start-3 lg:pt-2">
+              <h2 className="title border-t-2 border-ink pt-3 text-lg">How a run goes</h2>
+              <ol className="mt-3">
                 {HOW_IT_RUNS.map((step, index) => (
-                  <li key={step.title} className="flex gap-4 border-t border-stage-700 py-4 sm:gap-5">
-                    <span className="display w-11 shrink-0 text-4xl text-signal" aria-hidden="true">
-                      {String(index + 1).padStart(2, "0")}
+                  <li key={step.title} className="grid grid-cols-[1.75rem_minmax(0,1fr)] border-t border-rule py-4">
+                    <span className="figure pt-0.5 text-ink-3" aria-hidden="true">
+                      {index + 1}
                     </span>
                     <div>
-                      <p className="font-display text-2xl font-extrabold uppercase leading-7 tracking-wide text-bone-100">
-                        {step.title}
-                      </p>
-                      <p className="mt-1 text-[0.9375rem] leading-relaxed text-bone-400">{step.body}</p>
+                      <p className="label">{step.title}</p>
+                      <p className="mt-1 text-sm text-ink-2">{step.body}</p>
                     </div>
                   </li>
                 ))}
@@ -386,25 +348,22 @@ export function StagehandApp() {
         {view !== "input" && (
           <div
             key={view}
-            className="grid animate-view-in gap-x-8 gap-y-7 lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:grid-rows-[auto_1fr] xl:grid-cols-[minmax(0,1fr)_26rem] xl:gap-x-12"
+            className="grid animate-view-in gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_21.5rem] lg:grid-rows-[auto_1fr] xl:grid-cols-[minmax(0,1fr)_24rem] xl:gap-x-16"
           >
             <div className="min-w-0 lg:col-start-1 lg:row-start-1">
               {view === "results" && (
                 <div>
                   <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-                    <p className="caption min-w-0 text-bone-400">{venueLine.join(" / ")}</p>
-                    <button type="button" onClick={startOver} className="btn-ghost">
+                    <p className="min-w-0 text-sm text-ink-2">{venueLine.join(" / ")}</p>
+                    <button type="button" onClick={startOver} className="btn-secondary min-h-9 px-3 text-sm">
                       Change venue
                     </button>
                   </div>
-                  <h1 id="results-heading" ref={headingRef} tabIndex={-1} className={`${headingClass} mt-4 ${HEADING_SIZE}`}>
+                  <h1 id="results-heading" ref={headingRef} tabIndex={-1} className={`${PAGE_TITLE} mt-5`}>
                     Shortlist for {venue?.city}
                   </h1>
                   {shortlist?.localityName && (
-                    <p className="mt-3 flex items-center gap-2 font-mono text-xs text-bone-400">
-                      <span className="h-2 w-2 shrink-0 bg-tape-400" aria-hidden="true" />
-                      Resolved to {shortlist.localityName} in Qloo.
-                    </p>
+                    <p className="figure mt-3 text-ink-3">Resolved to {shortlist.localityName} in Qloo.</p>
                   )}
                 </div>
               )}
@@ -412,13 +371,13 @@ export function StagehandApp() {
               {view === "detail" && selected && (
                 <div>
                   <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-                    <p className="caption min-w-0 text-bone-400">{["Promo plan", ...venueLine].join(" / ")}</p>
-                    <button type="button" onClick={() => setView("results")} className="btn-ghost">
+                    <p className="min-w-0 text-sm text-ink-2">{["Promo plan", ...venueLine].join(" / ")}</p>
+                    <button type="button" onClick={() => setView("results")} className="btn-secondary min-h-9 px-3 text-sm">
                       <Arrow className="h-2.5 w-4" direction="left" />
                       Back to shortlist
                     </button>
                   </div>
-                  <h1 id="detail-heading" ref={headingRef} tabIndex={-1} className={`${headingClass} mt-4 ${HEADING_SIZE}`}>
+                  <h1 id="detail-heading" ref={headingRef} tabIndex={-1} className={`${PAGE_TITLE} mt-5`}>
                     {selected.name}
                   </h1>
                 </div>
@@ -427,57 +386,53 @@ export function StagehandApp() {
 
             <div className={`min-w-0 lg:col-start-1 lg:row-start-2 ${running ? "order-3 lg:order-none" : ""}`}>
               {view === "results" && (
-                <section aria-labelledby="results-heading" className="space-y-6">
+                <section aria-labelledby="results-heading" className="space-y-8">
                   {error && <ErrorPanel message={error} onRetry={!running ? retry : undefined} />}
 
                   {!shortlist && !error && (
-                    <div className="space-y-5">
+                    <div className="space-y-8">
                       <RunningNote>Building the shortlist. Each Qloo call shows in the activity panel as it runs.</RunningNote>
-                      <SkeletonTickets />
+                      <SkeletonLineup />
                     </div>
                   )}
 
                   {shortlist && (
-                    <div className="animate-rise border-l-2 border-signal pl-4 sm:pl-5">
-                      <p className="caption text-bone-400">Agent summary</p>
-                      <p className="mt-1.5 max-w-[68ch] text-[1.0625rem] leading-relaxed text-bone-100">{shortlist.summary}</p>
+                    <div className="animate-view-in">
+                      <p className="label">Agent summary</p>
+                      <p className="mt-1 max-w-[64ch] text-md text-ink">{shortlist.summary}</p>
                     </div>
                   )}
 
                   {shortlist && shortlist.artists.length === 0 && (
-                    <p className="border border-stage-700 bg-stage-900 px-5 py-5 text-[0.9375rem] leading-relaxed text-bone-300">
+                    <p className="border-t border-ink pt-3 text-base text-ink-2">
                       The agent returned no artists. Try a larger city or add artists that sold well for you.
                     </p>
                   )}
 
                   {shortlist && shortlist.artists.length > 0 && (
-                    <>
-                      <p className="caption flex items-center gap-3 text-bone-400">
+                    <div>
+                      <LineupHeader count={shortlist.artists.length} />
+                      <p className="sr-only">
                         {shortlist.artists.length} {shortlist.artists.length === 1 ? "artist" : "artists"}, ranked
-                        <span className="h-px flex-1 bg-stage-700" aria-hidden="true" />
                       </p>
-                      <ol className="space-y-3">
+                      <ol>
                         {shortlist.artists.map((artist, index) => (
-                          <li
-                            key={artist.entityId}
-                            className="animate-rise transition-transform duration-200 hover:-translate-y-0.5"
-                            style={{ animationDelay: `${80 + index * 90}ms` }}
-                          >
+                          <li key={artist.entityId} className="animate-row-in" style={{ animationDelay: `${index * 40}ms` }}>
                             <ArtistCard artist={artist} onSelect={startPromo} total={shortlist.artists.length} />
                           </li>
                         ))}
                       </ol>
-                    </>
+                    </div>
                   )}
                 </section>
               )}
 
               {view === "detail" && selected && (
-                <section aria-labelledby="detail-heading" className="space-y-6">
+                <section aria-labelledby="detail-heading" className="space-y-8">
                   {error && <ErrorPanel message={error} onRetry={!running ? retry : undefined} />}
 
                   {!promo && !error && (
-                    <div className="space-y-5">
+                    <div className="space-y-8">
                       <RunningNote>Building the promo plan from cross-domain Qloo insights and drafting outreach.</RunningNote>
                       <SkeletonPlan />
                     </div>
@@ -498,10 +453,10 @@ export function StagehandApp() {
         )}
       </main>
 
-      <footer className="border-t border-stage-700">
-        <div className="mx-auto flex max-w-shell flex-wrap items-center justify-between gap-x-8 gap-y-2 px-4 py-6 text-[0.8125rem] leading-relaxed text-bone-500 sm:px-6 lg:px-8">
+      <footer className="border-t border-rule">
+        <div className="shell flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1 py-5 text-sm text-ink-3">
           <p>Stagehand is an open-source hackathon project. Review every draft before you send it.</p>
-          <p className="caption">Taste data from Qloo</p>
+          <p>Taste data from Qloo</p>
         </div>
       </footer>
     </div>

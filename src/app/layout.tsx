@@ -1,26 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Big_Shoulders, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
+import { Libre_Franklin, Source_Code_Pro } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-// The metric-matched fallback for this face is declared in globals.css.
-const display = Big_Shoulders({
-  subsets: ["latin"],
-  weight: "800",
-  variable: "--font-display",
-  display: "swap",
-  adjustFontFallback: false,
-});
-
-const sans = Instrument_Sans({
+const sans = Libre_Franklin({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
 });
 
-const mono = IBM_Plex_Mono({
+const mono = Source_Code_Pro({
   subsets: ["latin"],
-  weight: ["400", "500"],
   variable: "--font-mono",
   display: "swap",
 });
@@ -53,13 +43,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0907",
-  colorScheme: "dark",
+  themeColor: "#ffffff",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body className="min-h-screen">{children}</body>
     </html>
   );

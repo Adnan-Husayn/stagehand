@@ -55,30 +55,28 @@ function plural(count: number, one: string, many: string): string {
 }
 
 function Section({
-  number,
   id,
   title,
+  count,
   description,
   children,
 }: {
-  number: string;
   id: string;
   title: string;
+  count?: string;
   description?: string;
   children: ReactNode;
 }) {
   return (
-    <section aria-labelledby={id} className="border-t-2 border-ink-900 px-5 pb-9 pt-5 sm:px-9 sm:pb-11 sm:pt-6">
-      <div className="flex items-baseline gap-3 sm:gap-4">
-        <span className="display text-3xl text-signal-600 sm:text-4xl" aria-hidden="true">
-          {number}
-        </span>
-        <h2 id={id} className="display text-3xl text-ink-900 sm:text-4xl">
+    <section aria-labelledby={id} className="border-t-2 border-ink pb-12 pt-3 last:pb-0">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 id={id} className="title text-lg">
           {title}
         </h2>
+        {count && <p className="figure shrink-0 text-ink-3">{count}</p>}
       </div>
-      {description && <p className="mt-2.5 max-w-[66ch] text-[0.9375rem] leading-relaxed text-ink-700">{description}</p>}
-      <div className="mt-6">{children}</div>
+      {description && <p className="mt-1 max-w-[62ch] text-sm text-ink-2">{description}</p>}
+      <div className="mt-5">{children}</div>
     </section>
   );
 }
@@ -90,7 +88,7 @@ function DraftBody({ text }: { text: string }) {
     <>
       {parts.map((part, index) =>
         index % 2 === 1 ? (
-          <mark key={index} className="bg-signal/15 px-0.5 text-ink-900 underline decoration-signal-700 decoration-dotted decoration-2 underline-offset-4">
+          <mark key={index} className="bg-mark px-0.5">
             {part}
           </mark>
         ) : (
@@ -103,84 +101,90 @@ function DraftBody({ text }: { text: string }) {
 
 function Letter({ to, draft, copyText, copyLabel }: { to: string; draft: EmailDraft; copyText: string; copyLabel: string }) {
   return (
-    <div className="letter border border-ink-900/25 shadow-[0_14px_28px_-18px_rgba(23,19,14,0.55)]">
-      <div className="flex flex-col gap-x-6 gap-y-4 border-b border-ink-900/25 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-7">
-        <dl className="min-w-0 space-y-1.5 font-mono text-[0.8125rem] leading-5 sm:flex-1">
+    <div className="border border-rule">
+      <div className="flex flex-col gap-x-6 gap-y-4 border-b border-rule px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+        <dl className="min-w-0 space-y-1 text-sm sm:flex-1">
           <div className="flex gap-3">
-            <dt className="caption w-16 shrink-0 pt-0.5 text-ink-500">To</dt>
-            <dd className="min-w-0 break-words text-ink-700">{to}</dd>
+            <dt className="w-14 shrink-0 text-ink-3">To</dt>
+            <dd className="min-w-0 break-words text-ink">{to}</dd>
           </div>
           <div className="flex gap-3">
-            <dt className="caption w-16 shrink-0 pt-0.5 text-ink-500">Subject</dt>
-            <dd className="min-w-0 break-words font-medium text-ink-900">{draft.subject}</dd>
+            <dt className="w-14 shrink-0 text-ink-3">Subject</dt>
+            <dd className="min-w-0 break-words font-semibold text-ink">{draft.subject}</dd>
           </div>
         </dl>
         <CopyButton text={copyText} label={copyLabel} />
       </div>
-      <pre className="whitespace-pre-wrap break-words px-4 py-5 font-mono text-[0.8125rem] leading-[1.75] text-ink-900 sm:px-7 sm:py-7 sm:text-sm sm:leading-[1.8]">
+      <div className="max-w-[72ch] whitespace-pre-wrap break-words px-4 py-5 text-base leading-[1.7] text-ink sm:px-6 sm:py-6">
         <DraftBody text={draft.body} />
-      </pre>
+      </div>
     </div>
   );
 }
+
+const TABLE_ROW = "grid gap-x-6 gap-y-2 border-t border-ink pt-3 sm:grid-cols-[8.5rem_minmax(0,1fr)]";
 
 export function PromoDetail({ plan }: { plan: PromoPlan }) {
   const bookingText = `Subject: ${plan.bookingEmail.subject}\n\n${plan.bookingEmail.body}`;
   const pitchText = `Subject: ${plan.partnerPitch.subject}\n\n${plan.partnerPitch.body}`;
   const groups = groupPartners(plan.partners);
   const generated = formatGenerated(plan.generatedAt);
+  const summary = [
+    plural(plan.partners.length, "partner", "partners"),
+    plural(plan.adTargeting.length, "ad audience", "ad audiences"),
+    "2 drafts",
+    ...(generated ? [`Generated ${generated}`] : []),
+  ];
 
   return (
-    <article className="paper animate-rise shadow-sheet">
-      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 sm:px-9">
-        <p className="caption text-ink-500">
-          {plural(plan.partners.length, "partner", "partners")}
-          <span aria-hidden="true"> / </span>
-          <span className="sr-only">, </span>
-          {plural(plan.adTargeting.length, "ad audience", "ad audiences")}
-          <span aria-hidden="true"> / </span>
-          <span className="sr-only">, </span>
-          2 drafts
-          {generated && (
-            <>
-              <span aria-hidden="true"> / </span>
-              <span className="sr-only">, </span>
-              Generated {generated}
-            </>
-          )}
+    <article className="animate-view-in">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 pb-6">
+        <p className="text-sm text-ink-2">
+          {summary.map((part, index) => (
+            <Fragment key={part}>
+              {index > 0 && (
+                <>
+                  <span aria-hidden="true"> / </span>
+                  <span className="sr-only">, </span>
+                </>
+              )}
+              {part}
+            </Fragment>
+          ))}
         </p>
-        {plan.demo && (
-          <span className="caption -rotate-2 border-2 border-signal-700 px-2 py-0.5 text-signal-700">Sample data</span>
-        )}
+        {plan.demo && <span className="border border-ink px-1.5 font-mono text-2xs font-semibold text-ink">Sample data</span>}
       </header>
 
       <Section
-        number="01"
         id="promo-partners"
         title="Partners"
+        count={plural(plan.partners.length, "partner", "partners")}
         description="Brands, places, podcasts, films and TV shows that this artist's fans over-index on, from Qloo's cross-domain insights."
       >
         {groups.length === 0 ? (
-          <p className="text-[0.9375rem] text-ink-700">The plan lists no partners.</p>
+          <p className="text-base text-ink-2">The plan lists no partners.</p>
         ) : (
-          <div className="space-y-7">
+          <div className="space-y-8">
             {groups.map((group) => (
-              <div key={group.kind} className="grid gap-x-6 gap-y-3 sm:grid-cols-[6.5rem_minmax(0,1fr)]">
-                <h3 className="caption flex items-baseline justify-between gap-2 border-t border-ink-900/60 pt-2 text-ink-900 sm:block">
+              <div key={group.kind} className={TABLE_ROW}>
+                <h3 className="label flex items-baseline justify-between gap-2 sm:block">
                   {kindHeading(group.kind, group.items.length)}
-                  <span className="text-ink-500 sm:mt-1 sm:block" aria-hidden="true">
-                    {String(group.items.length).padStart(2, "0")}
+                  <span className="figure font-normal text-ink-3 sm:mt-0.5 sm:block" aria-hidden="true">
+                    {group.items.length}
                   </span>
                 </h3>
-                <ul className="space-y-6">
+                <ul>
                   {group.items.map((partner) => (
-                    <li key={partner.entityId} className="border-t border-ink-900/25 pt-2 sm:border-ink-900/60">
-                      <h4 className="font-display text-[1.75rem] font-extrabold uppercase leading-[1.05] tracking-wide text-ink-900">
-                        {partner.name}
-                      </h4>
-                      <p className="mt-2 max-w-[62ch] text-[0.9375rem] leading-relaxed text-ink-700">{partner.angle}</p>
-                      <div className="mt-3">
-                        <EvidenceChips chips={partner.evidence} />
+                    <li
+                      key={partner.entityId}
+                      className="grid gap-x-6 gap-y-3 border-t border-rule py-4 first:border-t-0 first:pt-0 last:pb-0 2xl:grid-cols-[minmax(0,1fr)_15rem]"
+                    >
+                      <div className="min-w-0">
+                        <h4 className="title break-words text-lg">{partner.name}</h4>
+                        <p className="mt-1.5 max-w-[60ch] text-base text-ink-2">{partner.angle}</p>
+                      </div>
+                      <div className="max-w-sm 2xl:max-w-none">
+                        <EvidenceChips chips={partner.evidence} entityId={partner.entityId} />
                       </div>
                     </li>
                   ))}
@@ -192,39 +196,33 @@ export function PromoDetail({ plan }: { plan: PromoPlan }) {
       </Section>
 
       <Section
-        number="02"
         id="promo-ads"
         title="Ad audiences"
+        count={plural(plan.adTargeting.length, "audience", "audiences")}
         description="Audiences to target, each tied to the Qloo results it comes from."
       >
         {plan.adTargeting.length === 0 ? (
-          <p className="text-[0.9375rem] text-ink-700">The plan lists no ad audiences.</p>
+          <p className="text-base text-ink-2">The plan lists no ad audiences.</p>
         ) : (
           <ul className="space-y-6">
             {plan.adTargeting.map((target, index) => (
-              <li
-                key={`${target.platform}-${index}`}
-                className="grid gap-x-6 gap-y-2 border-t border-ink-900/60 pt-2 sm:grid-cols-[6.5rem_minmax(0,1fr)]"
-              >
-                <p className="caption text-ink-900">{PLATFORM_LABEL[target.platform] ?? target.platform}</p>
+              <li key={`${target.platform}-${index}`} className={TABLE_ROW}>
+                <p className="label">{PLATFORM_LABEL[target.platform] ?? target.platform}</p>
                 <div className="min-w-0">
-                  <p className="text-lg font-semibold leading-snug text-ink-900">{target.audience}</p>
-                  <p className="mt-1.5 max-w-[62ch] text-[0.9375rem] leading-relaxed text-ink-700">{target.rationale}</p>
+                  <p className="text-md font-semibold text-ink">{target.audience}</p>
+                  <p className="mt-1.5 max-w-[60ch] text-base text-ink-2">{target.rationale}</p>
                   {target.basedOn.length > 0 && (
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                      <span className="caption mr-1 flex items-center gap-2 text-ink-500">
-                        <span className="h-2 w-2 bg-tape-700" aria-hidden="true" />
-                        Based on
-                      </span>
-                      {target.basedOn.map((item) => (
-                        <span
-                          key={item.entityId}
-                          className="max-w-full break-words border border-ink-900/25 bg-paper-50 px-2 py-0.5 font-mono text-xs font-medium leading-5 text-ink-900"
-                        >
-                          {item.name}
-                        </span>
-                      ))}
-                    </div>
+                    <dl className="mt-3 flex gap-3 border-t border-rule pt-2 text-sm">
+                      <dt className="shrink-0 text-ink-3">Based on</dt>
+                      <dd className="min-w-0 break-words text-ink">
+                        {target.basedOn.map((item, itemIndex) => (
+                          <Fragment key={item.entityId}>
+                            {itemIndex > 0 && ", "}
+                            {item.name}
+                          </Fragment>
+                        ))}
+                      </dd>
+                    </dl>
                   )}
                 </div>
               </li>
@@ -234,7 +232,6 @@ export function PromoDetail({ plan }: { plan: PromoPlan }) {
       </Section>
 
       <Section
-        number="03"
         id="promo-booking"
         title="Booking inquiry"
         description="A draft for the artist's agent. Replace each marked [placeholder] with real facts before you send it."
@@ -243,7 +240,6 @@ export function PromoDetail({ plan }: { plan: PromoPlan }) {
       </Section>
 
       <Section
-        number="04"
         id="promo-pitch"
         title="Partner pitch"
         description={`A short pitch to ${plan.partnerPitch.partnerName}, one of the partners above.`}

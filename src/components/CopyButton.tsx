@@ -44,10 +44,10 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
 
   const tone =
     state === "copied"
-      ? "border-ink-900 bg-ink-900 text-paper-50"
+      ? "border-ink bg-ink text-paper"
       : state === "failed"
-        ? "border-signal-700 bg-paper-50 text-signal-700"
-        : "border-ink-900 bg-paper-50 text-ink-900 shadow-press-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-press active:translate-x-0.5 active:translate-y-0.5 active:shadow-none";
+        ? "border-stop bg-paper text-stop"
+        : "border-ink bg-paper text-ink hover:bg-ink hover:text-paper";
 
   return (
     <>
@@ -56,22 +56,15 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
         onClick={copy}
         aria-label={`Copy ${label}`}
         data-state={state}
-        className={`caption inline-flex min-h-10 min-w-[6.75rem] shrink-0 items-center self-start justify-center gap-2 rounded-sm border px-3 transition duration-150 ${tone}`}
+        className={`inline-flex min-h-10 min-w-[6.5rem] shrink-0 items-center justify-center gap-2 self-start rounded border px-3 text-sm font-semibold transition-colors duration-100 ${tone}`}
       >
         {state === "copied" ? (
-          <span key="copied" className="inline-flex animate-stamp items-center gap-2">
+          <>
             <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true" focusable="false">
-              <path
-                d="M2.5 8.5l3.5 3.5 7.5-8"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeDasharray="18"
-                className="animate-draw"
-              />
+              <path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
             Copied
-          </span>
+          </>
         ) : state === "failed" ? (
           "Copy failed"
         ) : (

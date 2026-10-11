@@ -2,6 +2,11 @@ import type { ShortlistArtist } from "@/lib/types/stagehand";
 import { Arrow } from "./Brand";
 import { EvidenceChips } from "./EvidenceChips";
 
+/** Column template shared by the line-up header and every row, so they stay aligned. */
+export const LINEUP_GRID =
+  "grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 sm:grid-cols-[3rem_minmax(0,1fr)] sm:gap-x-4 xl:grid-cols-[3rem_minmax(0,1fr)_16rem] xl:gap-x-8";
+
+/** One row of the line-up. The first rank is set larger, like the top of a bill, and carries the main action. */
 export function ArtistCard({
   artist,
   onSelect,
@@ -11,49 +16,40 @@ export function ArtistCard({
   onSelect: (artist: ShortlistArtist) => void;
   total?: number;
 }) {
+  const top = artist.rank === 1;
+  const size = top ? "text-xl sm:text-2xl" : "text-lg sm:text-xl";
   return (
-    <article className="ticket paper group relative grid grid-cols-[4.5rem_minmax(0,1fr)] sm:grid-cols-[7rem_minmax(0,1fr)]">
-      <div className="relative flex flex-col items-center bg-paper-200/70 px-1 pb-4 pt-5 text-center sm:pt-6">
-        <span className="caption text-ink-500" aria-hidden="true">
-          Rank
-        </span>
-        <span
-          className="display mt-1 text-[3.25rem] text-signal-600 sm:text-[5rem]"
-          role="img"
-          aria-label={`Rank ${artist.rank}`}
-        >
-          {String(artist.rank).padStart(2, "0")}
-        </span>
-        {total !== undefined && (
-          <span className="caption mt-2 text-ink-500" aria-hidden="true">
-            of {String(total).padStart(2, "0")}
-          </span>
-        )}
-        <span className="perforation absolute inset-y-3 right-0 w-[2px]" aria-hidden="true" />
+    <article className={`${LINEUP_GRID} border-b border-rule py-5 sm:py-6 xl:grid-rows-[auto_1fr]`}>
+      <p
+        className={`title ${size} text-ink-3`}
+        role="img"
+        aria-label={total !== undefined ? `Rank ${artist.rank} of ${total}` : `Rank ${artist.rank}`}
+      >
+        {artist.rank}
+      </p>
+
+      <div className="min-w-0">
+        <h3 className={`title break-words ${size}`}>{artist.name}</h3>
+        <p className="mt-2 max-w-[60ch] text-base text-ink-2">{artist.why}</p>
       </div>
 
-      <div className="min-w-0 px-4 pb-5 pt-5 sm:px-7 sm:pb-6 sm:pt-6">
-        <h3 className="display break-words text-[2rem] text-ink-900 sm:text-[2.75rem]">{artist.name}</h3>
-        <p className="mt-3 max-w-[62ch] text-[0.9375rem] leading-relaxed text-ink-700">{artist.why}</p>
+      <div className="col-start-2 mt-4 min-w-0 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-1.5">
+        <p className="label mb-1.5 xl:hidden" aria-hidden="true">
+          Evidence from Qloo
+        </p>
+        <EvidenceChips chips={artist.evidence} entityId={artist.entityId} />
+      </div>
 
-        <div className="mt-4">
-          <EvidenceChips chips={artist.evidence} />
-        </div>
-
-        <div className="mt-5 flex flex-col gap-3 border-t border-ink-900/20 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="min-w-0 break-all font-mono text-[0.6875rem] leading-4 text-ink-500">
-            Qloo id {artist.entityId}
-          </p>
-          <button
-            type="button"
-            onClick={() => onSelect(artist)}
-            aria-label={`Build promo plan for ${artist.name}`}
-            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-3 rounded-sm bg-ink-900 px-5 font-display text-lg font-extrabold uppercase tracking-wide text-paper-50 transition duration-150 hover:bg-signal hover:text-ink-900 focus-visible:bg-signal focus-visible:text-ink-900"
-          >
-            Build promo plan
-            <Arrow className="h-3 w-5 transition-transform duration-150 group-hover:translate-x-0.5" />
-          </button>
-        </div>
+      <div className="col-start-2 mt-4 self-start">
+        <button
+          type="button"
+          onClick={() => onSelect(artist)}
+          aria-label={`Build promo plan for ${artist.name}`}
+          className={`${top ? "btn-primary min-h-10 px-4" : "btn-secondary"} w-full sm:w-auto`}
+        >
+          Build promo plan
+          <Arrow className="h-2.5 w-4" />
+        </button>
       </div>
     </article>
   );
