@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CheckIcon, CopyIcon } from "./Brand";
 
 /** For browsers that block the async clipboard API: copy from a temporary selection. */
 function copyWithSelection(text: string): boolean {
@@ -44,10 +45,10 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
 
   const tone =
     state === "copied"
-      ? "border-ink bg-ink text-paper"
+      ? "border-key bg-key text-key-ink shadow-[0_0_44px_-4px_rgba(255,180,74,0.9)]"
       : state === "failed"
-        ? "border-stop bg-paper text-stop"
-        : "border-ink bg-paper text-ink hover:bg-ink hover:text-paper";
+        ? "border-stop text-stop"
+        : "border-key text-key hover:bg-key hover:text-key-ink";
 
   return (
     <>
@@ -56,22 +57,18 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
         onClick={copy}
         aria-label={`Copy ${label}`}
         data-state={state}
-        className={`inline-flex min-h-10 min-w-[6.5rem] shrink-0 items-center justify-center gap-2 self-start rounded border px-3 text-sm font-semibold transition-colors duration-100 ${tone}`}
+        className={`inline-flex min-h-11 min-w-[7.25rem] flex-none items-center justify-center gap-2 self-start rounded-full border px-4 text-base font-semibold transition-[background-color,color,box-shadow] duration-150 ${tone}`}
       >
         {state === "copied" ? (
           <>
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true" focusable="false">
-              <path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" strokeWidth="2" />
-            </svg>
+            <CheckIcon className="h-[0.9rem] w-[0.9rem]" />
             Copied
           </>
         ) : state === "failed" ? (
           "Copy failed"
         ) : (
           <>
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true" focusable="false">
-              <path d="M5.5 5.5v-3h8v8h-3M2.5 5.5h8v8h-8z" fill="none" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
+            <CopyIcon className="h-[0.9rem] w-[0.9rem]" />
             Copy
           </>
         )}

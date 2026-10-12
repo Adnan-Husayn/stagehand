@@ -3,73 +3,62 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
-    // One type scale for the whole app. Sizes are px values written in rem.
+    // One type scale for the whole app. Line height comes from the body (1.55).
     fontSize: {
-      "2xs": ["0.6875rem", "1rem"], // 11
-      xs: ["0.75rem", "1.125rem"], // 12
-      sm: ["0.8125rem", "1.25rem"], // 13
-      base: ["0.9375rem", "1.5rem"], // 15
-      input: ["1rem", "1.5rem"], // 16, keeps iOS from zooming on focus
-      md: ["1.0625rem", "1.625rem"], // 17
-      lg: ["1.25rem", "1.5rem"], // 20
-      xl: ["1.75rem", "1.1"], // 28
-      "2xl": ["2.25rem", "1.06"], // 36
-      "3xl": ["2.75rem", "1.04"], // 44
-      "4xl": ["3.5rem", "1"], // 56
+      "2xs": "0.6875rem", // 11
+      xs: "0.75rem", // 12
+      sm: "0.8125rem", // 13
+      ui: "0.875rem", // 14
+      base: "0.9375rem", // 15
+      body: "1rem", // 16, also keeps iOS from zooming on focus
+      md: "1.0625rem", // 17
+      lead: "clamp(1.05rem, 1.3vw, 1.2rem)",
     },
     extend: {
       colors: {
-        paper: "#ffffff",
-        wash: "#f4f4f4",
-        // Text and strong rules. 2 is secondary text, 3 is meta.
-        ink: {
-          DEFAULT: "#111111",
-          2: "#555555",
-          3: "#6e6e6e",
+        // The room, the panels that sit in it and the raised surfaces on those.
+        room: "#05070c",
+        panel: "#0b0f17",
+        raised: "#131a27",
+        well: "#070a10",
+        // Text: primary, text set straight on the canvas, secondary, placeholder.
+        ink: "#f1f4fa",
+        lit: "#dfe5f0",
+        soft: "#b3bdcf",
+        dim: "#8f9bb1",
+        // The follow spot colour, its dark text and the warm italic.
+        key: {
+          DEFAULT: "#ffb44a",
+          ink: "#1b1204",
         },
-        // Hairlines between rows.
-        rule: "#d6d6d6",
-        // Input borders at rest.
-        field: "#8a8a8a",
-        // The one accent. Fill only, always under ink text: the main action, live state
-        // and the placeholders a booker has to replace.
-        mark: "#ffe600",
+        warm: "#ffd08c",
+        // Qloo tags and hover borders.
+        beam: "#a9ccff",
         // Errors only.
-        stop: "#b3261e",
+        stop: "#ff9485",
+        // Input borders and dashed rules at rest.
+        field: "#6d7b95",
+        hair: "rgba(169, 204, 255, 0.16)",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "Franklin Gothic Medium", "Helvetica Neue", "Arial", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        display: ["var(--font-display)", "Didot", '"Bodoni 72"', "Georgia", "serif"],
+        sans: ["var(--font-sans)", "Helvetica Neue", "Arial", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "Menlo", "monospace"],
+      },
+      spacing: {
+        pad: "var(--pad)",
       },
       maxWidth: {
-        shell: "80rem",
+        shell: "92rem",
       },
-      borderRadius: {
-        DEFAULT: "2px",
+      transitionTimingFunction: {
+        stage: "cubic-bezier(0.2, 0.8, 0.2, 1)",
       },
-      keyframes: {
-        "view-in": {
-          from: { opacity: "0" },
-          to: { opacity: "1" },
-        },
-        "row-in": {
-          from: { opacity: "0", transform: "translateY(4px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
-        },
-        blink: {
-          "0%, 55%": { opacity: "1" },
-          "56%, 100%": { opacity: "0.15" },
-        },
-        wait: {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.45" },
-        },
-      },
+      // The keyframes live in globals.css.
       animation: {
-        "view-in": "view-in 160ms ease-out both",
-        "row-in": "row-in 220ms ease-out both",
-        blink: "blink 1s linear infinite",
+        dot: "dot-pulse 1.1s ease-in-out infinite",
         wait: "wait 1.6s ease-in-out infinite",
+        chip: "chip 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)",
       },
     },
   },

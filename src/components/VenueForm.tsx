@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { VenueProfile } from "@/lib/types/stagehand";
 import { Arrow } from "./Brand";
+import { prefersReducedMotion } from "./motion";
 
 const MAX_GENRES = 8;
 const MAX_SEEDS = 5;
@@ -45,6 +46,7 @@ function Field({
   note,
   help,
   error,
+  className = "",
   children,
 }: {
   id: string;
@@ -52,24 +54,25 @@ function Field({
   note?: string;
   help?: ReactNode;
   error?: string;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="min-w-0">
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="label">
+    <div className={`min-w-0 ${className}`}>
+      <div className="mb-[0.4rem] flex items-baseline justify-between gap-3">
+        <label htmlFor={id} className="text-base font-semibold">
           {label}
         </label>
-        {note && <span className="shrink-0 text-sm text-ink-3">{note}</span>}
+        {note && <span className="whitespace-nowrap font-mono text-xs text-soft">{note}</span>}
       </div>
       {children}
       {error ? (
-        <p id={`${id}-error`} className="mt-1.5 text-sm font-semibold text-stop">
+        <p id={`${id}-error`} className="mt-[0.4rem] text-sm font-semibold text-stop">
           {error}
         </p>
       ) : (
         help && (
-          <p id={`${id}-help`} className="mt-1.5 text-sm text-ink-2">
+          <p id={`${id}-help`} className="mt-[0.4rem] text-sm text-soft">
             {help}
           </p>
         )
@@ -177,117 +180,129 @@ export function VenueForm({
     seedRef.current?.focus();
   }
 
+  /** The main button leans toward the pointer. */
+  function leanToward(event: PointerEvent<HTMLButtonElement>) {
+    const button = event.currentTarget;
+    if (button.disabled || prefersReducedMotion() || event.pointerType === "touch") return;
+    const box = button.getBoundingClientRect();
+    const dx = (event.clientX - box.left - box.width / 2) * 0.18;
+    const dy = (event.clientY - box.top - box.height / 2) * 0.3;
+    button.style.transform = `translate(${dx}px, ${dy}px)`;
+  }
+
+  function settle(event: PointerEvent<HTMLButtonElement>) {
+    event.currentTarget.style.transform = "";
+  }
+
   const genreCount = parseList(genres).length;
   const seedsFull = seedList.length >= MAX_SEEDS;
 
   return (
-    <form onSubmit={handleSubmit} noValidate aria-labelledby="sheet-heading" aria-describedby="venue-form-help">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 border-t-2 border-ink pt-3">
-        <h2 id="sheet-heading" className="title text-lg">
+    <form onSubmit={handleSubmit} noValidate aria-labelledby="sheet-heading" aria-describedby="venue-form-help" className="desk">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <h2 id="sheet-heading" className="font-display text-[1.9rem] font-medium italic leading-[1.1]">
           Your venue
         </h2>
         {showSample && (
-          <button type="button" onClick={fillSample} className="btn-text">
+          <button type="button" onClick={fillSample} className="link">
             Use the sample venue
           </button>
         )}
       </div>
-      <p id="venue-form-help" className="mt-1 text-sm text-ink-2">
+      <p id="venue-form-help" className="mt-[0.35rem] text-ui text-soft">
         City and capacity are required. Genres and artists that sold well give the agent more to work with.
       </p>
 
-      <div className="mt-5 space-y-5">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field id="venue-name" label="Venue name" note="Optional">
-            <input
-              id="venue-name"
-              className="input"
-              value={venueName}
-              onChange={(e) => setVenueName(e.target.value)}
-              placeholder="The Lantern Room"
-              maxLength={120}
-              autoComplete="organization"
-            />
-          </Field>
-          <Field id="venue-city" label="City" help="City and state or country." error={errors.city}>
-            <input
-              ref={cityRef}
-              id="venue-city"
-              className="input"
-              value={city}
-              onChange={(e) => changeCity(e.target.value)}
-              placeholder="Asheville, NC"
-              maxLength={80}
-              aria-invalid={errors.city ? "true" : undefined}
-              aria-describedby={errors.city ? "venue-city-error" : "venue-city-help"}
-              required
-            />
-          </Field>
-        </div>
+      <div className="mt-[1.4rem] grid grid-cols-1 gap-x-4 gap-y-[1.15rem] sm:grid-cols-6">
+        <Field id="venue-name" label="Venue name" note="Optional" className="sm:col-span-3">
+          <input
+            id="venue-name"
+            className="input"
+            value={venueName}
+            onChange={(e) => setVenueName(e.target.value)}
+            placeholder="The Lantern Room"
+            maxLength={120}
+            autoComplete="organization"
+          />
+        </Field>
+        <Field id="venue-city" label="City" help="City and state or country." error={errors.city} className="sm:col-span-3">
+          <input
+            ref={cityRef}
+            id="venue-city"
+            className="input"
+            value={city}
+            onChange={(e) => changeCity(e.target.value)}
+            placeholder="Asheville, NC"
+            maxLength={80}
+            aria-invalid={errors.city ? "true" : undefined}
+            aria-describedby={errors.city ? "venue-city-error" : "venue-city-help"}
+            required
+          />
+        </Field>
 
-        <div className="grid gap-5 sm:grid-cols-[11rem_minmax(0,1fr)]">
-          <Field id="venue-capacity" label="Capacity" help="20 to 5000 people." error={errors.capacity}>
-            <input
-              ref={capacityRef}
-              id="venue-capacity"
-              className="input font-mono"
-              value={capacity}
-              onChange={(e) => changeCapacity(e.target.value)}
-              inputMode="numeric"
-              autoComplete="off"
-              aria-invalid={errors.capacity ? "true" : undefined}
-              aria-describedby={errors.capacity ? "venue-capacity-error" : "venue-capacity-help"}
-              required
-            />
-          </Field>
-          <Field
+        <Field id="venue-capacity" label="Capacity" help="20 to 5000 people." error={errors.capacity} className="sm:col-span-2">
+          <input
+            ref={capacityRef}
+            id="venue-capacity"
+            className="input font-mono"
+            value={capacity}
+            onChange={(e) => changeCapacity(e.target.value)}
+            inputMode="numeric"
+            autoComplete="off"
+            aria-invalid={errors.capacity ? "true" : undefined}
+            aria-describedby={errors.capacity ? "venue-capacity-error" : "venue-capacity-help"}
+            required
+          />
+        </Field>
+        <Field
+          id="venue-genres"
+          label="Typical genres"
+          note="Optional"
+          className="sm:col-span-4"
+          help={
+            genreCount > MAX_GENRES
+              ? `Separate genres with commas. Stagehand uses the first ${MAX_GENRES}.`
+              : "Separate genres with commas."
+          }
+        >
+          <input
             id="venue-genres"
-            label="Typical genres"
-            note="Optional"
-            help={
-              genreCount > MAX_GENRES
-                ? `Separate genres with commas. Stagehand uses the first ${MAX_GENRES}.`
-                : "Separate genres with commas."
-            }
-          >
-            <input
-              id="venue-genres"
-              className="input"
-              value={genres}
-              onChange={(e) => setGenres(e.target.value)}
-              placeholder="indie folk, dream pop, americana"
-              maxLength={300}
-              aria-describedby="venue-genres-help"
-            />
-          </Field>
-        </div>
+            className="input"
+            value={genres}
+            onChange={(e) => setGenres(e.target.value)}
+            placeholder="indie folk, dream pop, americana"
+            maxLength={300}
+            aria-describedby="venue-genres-help"
+          />
+        </Field>
 
         <Field
           id="venue-seeds"
           label="Artists that sold well here"
           note={`${seedList.length} of ${MAX_SEEDS}`}
+          className="sm:col-span-6"
           help={
             seedsFull
               ? `${MAX_SEEDS} is the limit. Remove an artist to add another.`
               : "Optional. Press Enter or type a comma after each name."
           }
         >
-          <div className="flex min-h-12 flex-wrap items-center gap-1.5 rounded border border-field bg-paper p-1.5 transition-colors duration-100 hover:border-ink has-[input:focus-visible]:border-ink has-[input:focus-visible]:outline has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-ink">
+          <div className="seedbox">
             {seedList.length > 0 && (
               <ul className="contents" aria-label="Artists Stagehand will use">
                 {seedList.map((seed, index) => (
                   <li
                     key={`${seed}-${index}`}
-                    className="flex min-h-9 max-w-full items-stretch border border-ink bg-paper text-sm font-semibold text-ink"
+                    className="flex max-w-full animate-chip items-stretch rounded-full border border-key text-ui font-semibold text-key"
                   >
-                    <span className="min-w-0 self-center break-words py-1 pl-2.5 pr-1">{seed}</span>
+                    <span className="min-w-0 py-[0.3rem] pl-[0.8rem] pr-[0.2rem] [overflow-wrap:anywhere]">{seed}</span>
                     <button
                       type="button"
                       onClick={() => removeSeed(index)}
                       aria-label={`Remove ${seed}`}
-                      className="flex w-8 shrink-0 items-center justify-center text-ink-2 hover:bg-ink hover:text-paper focus-visible:outline-offset-[-2px]"
+                      className="grid w-8 shrink-0 place-items-center rounded-r-full hover:bg-key hover:text-key-ink"
                     >
-                      <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" aria-hidden="true" focusable="false">
+                      <svg viewBox="0 0 12 12" className="h-[0.6rem] w-[0.6rem]" aria-hidden="true" focusable="false">
                         <path d="M1.5 1.5l9 9M10.5 1.5l-9 9" fill="none" stroke="currentColor" strokeWidth="1.5" />
                       </svg>
                     </button>
@@ -298,7 +313,7 @@ export function VenueForm({
             <input
               ref={seedRef}
               id="venue-seeds"
-              className="h-9 min-w-[9rem] flex-1 bg-transparent px-1.5 text-input text-ink outline-none placeholder:text-ink-3"
+              className="h-[2.2rem] min-w-[8.5rem] flex-1 bg-transparent px-[0.45rem] outline-none"
               value={seedDraft}
               onChange={(e) => changeSeedDraft(e.target.value)}
               onKeyDown={handleSeedKey}
@@ -313,12 +328,18 @@ export function VenueForm({
         </Field>
       </div>
 
-      <div className="mt-6 flex flex-col gap-x-5 gap-y-3 sm:flex-row sm:items-center">
-        <button type="submit" disabled={disabled} className="btn-primary w-full sm:w-auto">
+      <div className="mt-[1.6rem] flex flex-col gap-[0.9rem] sm:flex-row sm:items-center sm:gap-5">
+        <button
+          type="submit"
+          disabled={disabled}
+          onPointerMove={leanToward}
+          onPointerLeave={settle}
+          className="btn btn-primary"
+        >
           Build shortlist
-          <Arrow className="h-2.5 w-4" />
+          <Arrow />
         </button>
-        <p className="text-sm text-ink-3">Each Qloo call shows as it runs.</p>
+        <p className="text-ui text-soft">Each Qloo call shows as it runs.</p>
       </div>
     </form>
   );

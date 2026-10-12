@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TraceStep } from "@/lib/types/stagehand";
 import { QLOO_TOOL_NAMES } from "@/lib/client/stream";
-import { Arrow, LiveDot } from "./Brand";
+import { Arrow, CheckIcon, LiveDot } from "./Brand";
 
 type Row =
   | { type: "note"; key: string; step: TraceStep }
@@ -88,13 +88,16 @@ function callArgs(step: TraceStep): string {
 
 function Tag({ qloo }: { qloo: boolean }) {
   return qloo ? (
-    <span className="bg-ink px-1.5 font-mono text-2xs font-semibold text-paper">Qloo API</span>
+    <span className="whitespace-nowrap rounded-[3px] border border-beam/50 px-[0.3rem] font-mono text-2xs text-beam">
+      Qloo API
+    </span>
   ) : (
-    <span className="font-mono text-2xs text-ink-3">agent tool</span>
+    <span className="whitespace-nowrap font-mono text-2xs text-soft">agent tool</span>
   );
 }
 
-const ROW = "grid animate-row-in grid-cols-[1.75rem_minmax(0,1fr)] gap-x-2 border-b border-rule py-3 last:border-b-0";
+const ROW =
+  "cue relative grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-2 border-b border-hair px-5 py-[0.8rem]";
 
 function CallRow({ row, running }: { row: Extract<Row, { type: "call" }>; running: boolean }) {
   const tool = row.call.tool;
@@ -103,34 +106,42 @@ function CallRow({ row, running }: { row: Extract<Row, { type: "call" }>; runnin
   const failed = row.result !== undefined && row.result.detail.startsWith("Error:");
   const args = callArgs(row.call);
   return (
-    <li className={ROW}>
-      <span className="figure pt-px text-ink-3" aria-hidden="true">
+    <li className={`call ${ROW}`} data-state={inFlight ? "running" : "done"}>
+      <span className="font-mono text-sm leading-[1.6] text-soft" aria-hidden="true">
         {String(row.n).padStart(2, "0")}
       </span>
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-            <code className="break-all font-mono text-sm font-semibold text-ink">{tool ?? "tool_call"}</code>
+            <code className="break-all font-mono text-ui font-medium">{tool ?? "tool_call"}</code>
             <Tag qloo={qloo} />
           </div>
-          <span className="figure shrink-0 whitespace-nowrap text-ink">
+          <span className="whitespace-nowrap font-mono text-sm">
             {row.result?.durationMs !== undefined ? (
               formatDuration(row.result.durationMs)
             ) : inFlight ? (
-              <span className="inline-flex items-center gap-1.5 bg-mark px-1.5">
-                <LiveDot className="h-1.5 w-1.5" />
+              <span className="inline-flex items-center gap-[0.4rem] text-key">
+                <LiveDot className="h-[0.375rem] w-[0.375rem]" />
                 running
               </span>
             ) : row.result ? null : (
-              <span className="text-ink-3">no result</span>
+              <span className="text-soft">no result</span>
             )}
           </span>
         </div>
-        <p className="mt-1 break-words text-sm text-ink">{row.thought ? row.thought.detail : `${toolTitle(tool)}.`}</p>
-        {args.length > 0 && <code className="figure mt-1 block break-words text-ink-3">{args}</code>}
+        <p className="mt-1 break-words text-ui leading-[1.45]">{row.thought ? row.thought.detail : `${toolTitle(tool)}.`}</p>
+        {args.length > 0 && (
+          <code className="mt-1 block break-words font-mono text-xs leading-normal text-soft [overflow-wrap:anywhere]">
+            {args}
+          </code>
+        )}
         {row.result && (
-          <p className={`figure mt-1 flex gap-2 break-words ${failed ? "text-stop" : "text-ink"}`}>
-            <Arrow className="mt-[0.3125rem] h-2 w-3 shrink-0" />
+          <p
+            className={`mt-[0.3rem] flex gap-2 break-words font-mono text-sm leading-normal [overflow-wrap:anywhere] ${
+              failed ? "text-stop" : "text-warm"
+            }`}
+          >
+            <Arrow className="mt-[0.42rem] h-2 w-3 shrink-0" />
             <span className="min-w-0 break-words">{row.result.detail}</span>
           </p>
         )}
@@ -140,19 +151,13 @@ function CallRow({ row, running }: { row: Extract<Row, { type: "call" }>; runnin
 }
 
 function NoteRow({ label, tone, children }: { label: string; tone: "quiet" | "done" | "error"; children: string }) {
-  const color = tone === "error" ? "text-stop" : tone === "done" ? "text-ink" : "text-ink-2";
+  const color = tone === "error" ? "text-stop" : tone === "done" ? "text-ink" : "text-soft";
   return (
-    <li className={ROW}>
-      <span className={`figure pt-px ${tone === "error" ? "text-stop" : "text-ink-3"}`} aria-hidden="true">
-        {tone === "done" ? (
-          <svg viewBox="0 0 16 16" className="mt-0.5 h-3 w-3 text-ink" focusable="false">
-            <path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        ) : tone === "error" ? (
-          "!"
-        ) : null}
+    <li className={`anote ${ROW}`}>
+      <span className={`font-mono text-sm leading-[1.6] ${tone === "error" ? "text-stop" : "text-soft"}`} aria-hidden="true">
+        {tone === "done" ? <CheckIcon className="mt-[0.3rem] h-[0.8rem] w-[0.8rem] text-key" /> : tone === "error" ? "!" : null}
       </span>
-      <p className={`min-w-0 break-words text-sm ${color}`}>
+      <p className={`min-w-0 break-words text-ui ${color}`}>
         <span className="font-semibold">{label}.</span> {children}
       </p>
     </li>
@@ -208,39 +213,38 @@ export function ActivityPanel({ trace, running }: { trace: TraceStep[]; running:
   return (
     <section
       aria-labelledby="activity-heading"
-      className="relative flex max-h-[min(34rem,78vh)] flex-col border-t-2 border-ink lg:max-h-[max(24rem,calc(100vh-11.5rem))]"
+      data-state={state.toLowerCase()}
+      className="act relative flex max-h-[26rem] min-w-0 flex-col rounded-md border border-hair bg-panel/95 lg:max-h-[max(24rem,calc(100vh-11.5rem))]"
     >
-      <header className="pb-3 pt-3">
+      <header className="border-b border-hair px-5 pb-[0.95rem] pt-[1.1rem]">
         <div className="flex items-baseline justify-between gap-4">
-          <h2 id="activity-heading" className="title text-lg">
+          <h2 id="activity-heading" className="font-display text-[1.6rem] font-medium italic leading-[1.1]">
             Agent activity
           </h2>
-          {running ? (
-            <span className="inline-flex items-center gap-2 bg-mark px-2 py-0.5 text-sm font-semibold text-ink">
-              <LiveDot />
-              {state}
-            </span>
-          ) : (
-            <span className={`text-sm font-semibold ${state === "Stopped" ? "text-stop" : state === "Done" ? "text-ink" : "text-ink-3"}`}>
-              {state}
-            </span>
-          )}
+          <span
+            className={`inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-[0.08em] ${
+              running ? "text-key" : state === "Stopped" ? "text-stop" : state === "Done" ? "text-ink" : "text-soft"
+            }`}
+          >
+            {running && <LiveDot />}
+            {state}
+          </span>
         </div>
-        <p className="mt-1 text-sm text-ink-2">Each call the agent makes to Qloo, in order, with what came back.</p>
-        <dl className="figure mt-3 flex flex-wrap gap-x-6 gap-y-1">
+        <p className="mt-[0.3rem] text-ui text-soft">Each call the agent makes to Qloo, in order, with what came back.</p>
+        <dl className="mt-[0.7rem] flex flex-wrap gap-x-6 gap-y-1 font-mono text-sm">
           <div className="flex gap-2">
-            <dt className="text-ink-3">Qloo calls</dt>
-            <dd className="font-semibold text-ink">{stats.qlooCalls}</dd>
+            <dt className="text-soft">Qloo calls</dt>
+            <dd>{stats.qlooCalls}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="text-ink-3">Tool time</dt>
-            <dd className="font-semibold text-ink">{formatDuration(stats.toolMs)}</dd>
+            <dt className="text-soft">Tool time</dt>
+            <dd>{formatDuration(stats.toolMs)}</dd>
           </div>
         </dl>
       </header>
 
       {rows.length === 0 ? (
-        <p className="flex items-center gap-2.5 border-y border-rule py-6 text-sm text-ink-2">
+        <p className="flex items-center gap-[0.7rem] px-5 py-6 text-ui text-soft">
           {running && <LiveDot />}
           {running ? "Waiting for the first step." : "Activity appears here when a run starts."}
         </p>
@@ -251,7 +255,7 @@ export function ActivityPanel({ trace, running }: { trace: TraceStep[]; running:
           tabIndex={0}
           role="group"
           aria-label="Agent steps"
-          className="scroll-quiet min-h-0 flex-1 overflow-y-auto overscroll-contain border-y border-rule pr-3 focus-visible:outline-offset-[-2px]"
+          className="act-scroll min-h-0 flex-1 overflow-y-auto focus-visible:outline-offset-[-2px]"
         >
           <ol aria-live="polite">
             {rows.map((row) => {
@@ -291,7 +295,7 @@ export function ActivityPanel({ trace, running }: { trace: TraceStep[]; running:
         <button
           type="button"
           onClick={jumpToLatest}
-          className="btn-secondary absolute bottom-3 left-1/2 min-h-9 -translate-x-1/2 px-3 text-sm"
+          className="btn btn-ghost absolute bottom-3 left-1/2 min-h-9 -translate-x-1/2 bg-raised px-3 text-ui"
         >
           {running && <LiveDot />}
           Jump to latest

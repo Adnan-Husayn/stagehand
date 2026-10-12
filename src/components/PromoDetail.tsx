@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { EmailDraft, PromoPartner, PromoPlan } from "@/lib/types/stagehand";
 import { CopyButton } from "./CopyButton";
 import { EvidenceChips } from "./EvidenceChips";
@@ -68,15 +68,15 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section aria-labelledby={id} className="border-t-2 border-ink pb-12 pt-3 last:pb-0">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 id={id} className="title text-lg">
+    <section aria-labelledby={id} className="mt-11">
+      <div className="flex items-baseline justify-between gap-4 border-b border-hair pb-2">
+        <h2 id={id} className="font-display text-[clamp(1.8rem,3vw,2.5rem)] font-medium italic leading-[1.1]">
           {title}
         </h2>
-        {count && <p className="figure shrink-0 text-ink-3">{count}</p>}
+        {count && <p className="font-mono text-sm text-lit">{count}</p>}
       </div>
-      {description && <p className="mt-1 max-w-[62ch] text-sm text-ink-2">{description}</p>}
-      <div className="mt-5">{children}</div>
+      {description && <p className="mt-[0.6rem] max-w-[40rem] text-base text-lit">{description}</p>}
+      {children}
     </section>
   );
 }
@@ -87,13 +87,7 @@ function DraftBody({ text }: { text: string }) {
   return (
     <>
       {parts.map((part, index) =>
-        index % 2 === 1 ? (
-          <mark key={index} className="bg-mark px-0.5">
-            {part}
-          </mark>
-        ) : (
-          <Fragment key={index}>{part}</Fragment>
-        ),
+        index % 2 === 1 ? <mark key={index}>{part}</mark> : <Fragment key={index}>{part}</Fragment>,
       )}
     </>
   );
@@ -101,33 +95,33 @@ function DraftBody({ text }: { text: string }) {
 
 function Letter({ to, draft, copyText, copyLabel }: { to: string; draft: EmailDraft; copyText: string; copyLabel: string }) {
   return (
-    <div className="border border-rule">
-      <div className="flex flex-col gap-x-6 gap-y-4 border-b border-rule px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
-        <dl className="min-w-0 space-y-1 text-sm sm:flex-1">
+    <div className="mt-5 overflow-hidden rounded-md border border-hair bg-[rgba(13,18,28,0.96)]">
+      <div className="flex flex-col gap-4 border-b border-hair bg-raised/90 px-5 py-[1.1rem] sm:flex-row sm:items-start sm:justify-between">
+        <dl className="grid min-w-0 gap-1 text-ui">
           <div className="flex gap-3">
-            <dt className="w-14 shrink-0 text-ink-3">To</dt>
-            <dd className="min-w-0 break-words text-ink">{to}</dd>
+            <dt className="w-[3.75rem] flex-none text-soft">To</dt>
+            <dd className="min-w-0 [overflow-wrap:anywhere]">{to}</dd>
           </div>
           <div className="flex gap-3">
-            <dt className="w-14 shrink-0 text-ink-3">Subject</dt>
-            <dd className="min-w-0 break-words font-semibold text-ink">{draft.subject}</dd>
+            <dt className="w-[3.75rem] flex-none text-soft">Subject</dt>
+            <dd className="min-w-0 font-semibold [overflow-wrap:anywhere]">{draft.subject}</dd>
           </div>
         </dl>
         <CopyButton text={copyText} label={copyLabel} />
       </div>
-      <div className="max-w-[72ch] whitespace-pre-wrap break-words px-4 py-5 text-base leading-[1.7] text-ink sm:px-6 sm:py-6">
+      <div className="max-w-[46rem] whitespace-pre-wrap px-5 pb-[1.6rem] pt-[1.4rem] leading-[1.7] [overflow-wrap:anywhere]">
         <DraftBody text={draft.body} />
       </div>
     </div>
   );
 }
 
-const TABLE_ROW = "grid gap-x-6 gap-y-2 border-t border-ink pt-3 sm:grid-cols-[8.5rem_minmax(0,1fr)]";
+const BOX = "mt-5 rounded-md border border-hair bg-[rgba(13,18,28,0.96)]";
 
 export function PromoDetail({ plan }: { plan: PromoPlan }) {
   const bookingText = `Subject: ${plan.bookingEmail.subject}\n\n${plan.bookingEmail.body}`;
   const pitchText = `Subject: ${plan.partnerPitch.subject}\n\n${plan.partnerPitch.body}`;
-  const groups = groupPartners(plan.partners);
+  const partners = groupPartners(plan.partners).flatMap((group) => group.items);
   const generated = formatGenerated(plan.generatedAt);
   const summary = [
     plural(plan.partners.length, "partner", "partners"),
@@ -137,9 +131,9 @@ export function PromoDetail({ plan }: { plan: PromoPlan }) {
   ];
 
   return (
-    <article className="animate-view-in">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 pb-6">
-        <p className="text-sm text-ink-2">
+    <article className="promo">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 text-ui text-lit">
+        <p>
           {summary.map((part, index) => (
             <Fragment key={part}>
               {index > 0 && (
@@ -152,7 +146,11 @@ export function PromoDetail({ plan }: { plan: PromoPlan }) {
             </Fragment>
           ))}
         </p>
-        {plan.demo && <span className="border border-ink px-1.5 font-mono text-2xs font-semibold text-ink">Sample data</span>}
+        {plan.demo && (
+          <span className="rounded-full border border-key bg-panel px-[0.55rem] py-[0.15rem] font-mono text-2xs font-medium uppercase tracking-[0.06em] text-key">
+            Sample data
+          </span>
+        )}
       </header>
 
       <Section
@@ -161,35 +159,27 @@ export function PromoDetail({ plan }: { plan: PromoPlan }) {
         count={plural(plan.partners.length, "partner", "partners")}
         description="Brands, places, podcasts, films and TV shows that this artist's fans over-index on, from Qloo's cross-domain insights."
       >
-        {groups.length === 0 ? (
-          <p className="text-base text-ink-2">The plan lists no partners.</p>
+        {partners.length === 0 ? (
+          <p className="mt-5 text-base text-soft">The plan lists no partners.</p>
         ) : (
-          <div className="space-y-8">
-            {groups.map((group) => (
-              <div key={group.kind} className={TABLE_ROW}>
-                <h3 className="label flex items-baseline justify-between gap-2 sm:block">
-                  {kindHeading(group.kind, group.items.length)}
-                  <span className="figure font-normal text-ink-3 sm:mt-0.5 sm:block" aria-hidden="true">
-                    {group.items.length}
-                  </span>
+          <div className={BOX}>
+            {partners.map((partner, index) => (
+              <article
+                key={partner.entityId}
+                className="partner tile-in grid gap-x-8 gap-y-[0.2rem] border-t border-hair px-5 pb-[1.4rem] pt-[1.3rem] first:border-t-0 xl:grid-cols-[6.5rem_minmax(0,1fr)_16.5rem] xl:grid-rows-[auto_1fr]"
+                style={{ "--i": index } as CSSProperties}
+              >
+                <p className="pt-[0.45rem] font-mono text-2xs font-medium uppercase leading-[1.3] tracking-[0.12em] text-key xl:col-start-1 xl:row-span-2 xl:row-start-1">
+                  {kindHeading(partner.kind, 1)}
+                </p>
+                <h3 className="font-display text-[clamp(1.5rem,2.2vw,1.9rem)] font-medium leading-[1.1] [overflow-wrap:anywhere] xl:col-start-2">
+                  {partner.name}
                 </h3>
-                <ul>
-                  {group.items.map((partner) => (
-                    <li
-                      key={partner.entityId}
-                      className="grid gap-x-6 gap-y-3 border-t border-rule py-4 first:border-t-0 first:pt-0 last:pb-0 2xl:grid-cols-[minmax(0,1fr)_15rem]"
-                    >
-                      <div className="min-w-0">
-                        <h4 className="title break-words text-lg">{partner.name}</h4>
-                        <p className="mt-1.5 max-w-[60ch] text-base text-ink-2">{partner.angle}</p>
-                      </div>
-                      <div className="max-w-sm 2xl:max-w-none">
-                        <EvidenceChips chips={partner.evidence} entityId={partner.entityId} />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                <p className="mt-2 text-base text-soft xl:col-start-2">{partner.angle}</p>
+                <div className="mt-[0.7rem] min-w-0 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-start">
+                  <EvidenceChips chips={partner.evidence} entityId={partner.entityId} />
+                </div>
+              </article>
             ))}
           </div>
         )}
@@ -202,29 +192,36 @@ export function PromoDetail({ plan }: { plan: PromoPlan }) {
         description="Audiences to target, each tied to the Qloo results it comes from."
       >
         {plan.adTargeting.length === 0 ? (
-          <p className="text-base text-ink-2">The plan lists no ad audiences.</p>
+          <p className="mt-5 text-base text-soft">The plan lists no ad audiences.</p>
         ) : (
-          <ul className="space-y-6">
+          <ul
+            className={`${BOX} grid overflow-hidden sm:[grid-template-columns:repeat(var(--cols),minmax(0,1fr))]`}
+            style={{ "--cols": Math.min(plan.adTargeting.length, 3) } as CSSProperties}
+          >
             {plan.adTargeting.map((target, index) => (
-              <li key={`${target.platform}-${index}`} className={TABLE_ROW}>
-                <p className="label">{PLATFORM_LABEL[target.platform] ?? target.platform}</p>
-                <div className="min-w-0">
-                  <p className="text-md font-semibold text-ink">{target.audience}</p>
-                  <p className="mt-1.5 max-w-[60ch] text-base text-ink-2">{target.rationale}</p>
-                  {target.basedOn.length > 0 && (
-                    <dl className="mt-3 flex gap-3 border-t border-rule pt-2 text-sm">
-                      <dt className="shrink-0 text-ink-3">Based on</dt>
-                      <dd className="min-w-0 break-words text-ink">
-                        {target.basedOn.map((item, itemIndex) => (
-                          <Fragment key={item.entityId}>
-                            {itemIndex > 0 && ", "}
-                            {item.name}
-                          </Fragment>
-                        ))}
-                      </dd>
-                    </dl>
-                  )}
-                </div>
+              <li
+                key={`${target.platform}-${index}`}
+                className="tile-in border-t border-hair px-5 pb-[1.4rem] pt-[1.3rem] first:border-t-0 sm:border-l sm:border-t-0 sm:[&:nth-child(3n+1)]:border-l-0 sm:[&:nth-child(n+4)]:border-t"
+                style={{ "--i": index } as CSSProperties}
+              >
+                <p className="font-mono text-2xs font-medium uppercase leading-[1.3] tracking-[0.12em] text-key">
+                  {PLATFORM_LABEL[target.platform] ?? target.platform}
+                </p>
+                <p className="mt-2 text-md font-semibold leading-[1.35]">{target.audience}</p>
+                <p className="mt-2 text-base text-soft">{target.rationale}</p>
+                {target.basedOn.length > 0 && (
+                  <dl className="mt-[0.9rem] flex gap-3 border-t border-hair pt-[0.55rem] text-ui">
+                    <dt className="flex-none text-soft">Based on</dt>
+                    <dd className="min-w-0 [overflow-wrap:anywhere]">
+                      {target.basedOn.map((item, itemIndex) => (
+                        <Fragment key={item.entityId}>
+                          {itemIndex > 0 && ", "}
+                          {item.name}
+                        </Fragment>
+                      ))}
+                    </dd>
+                  </dl>
+                )}
               </li>
             ))}
           </ul>

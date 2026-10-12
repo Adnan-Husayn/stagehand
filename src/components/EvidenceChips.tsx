@@ -7,19 +7,21 @@ const INLINE_LIMIT = 22;
 const FIGURE = /^[#\d\s.,%/+-]+(of\s+[\d,]+)?$/i;
 
 function Row({ label, value, quiet = false }: { label: string; value: string; quiet?: boolean }) {
-  const tone = quiet ? "text-ink-3" : "text-ink";
-  if (value.length > INLINE_LIMIT) {
+  const long = value.length > INLINE_LIMIT;
+  const figure = FIGURE.test(value) ? "font-mono text-sm" : "";
+  const idStyle = quiet ? "break-all font-mono text-sm text-soft" : "";
+  if (long) {
     return (
-      <div className="border-t border-rule py-1.5">
-        <dt className="text-ink-2">{label}</dt>
-        <dd className={`mt-0.5 ${quiet ? "figure break-all" : "break-words"} ${tone}`}>{value}</dd>
+      <div className="border-t border-hair py-[0.4rem]">
+        <dt className="text-soft">{label}</dt>
+        <dd className={`mt-[0.1rem] [overflow-wrap:anywhere] ${idStyle}`}>{value}</dd>
       </div>
     );
   }
   return (
-    <div className="flex items-baseline justify-between gap-4 border-t border-rule py-1.5">
-      <dt className="text-ink-2">{label}</dt>
-      <dd className={`shrink-0 text-right ${FIGURE.test(value) ? "figure" : ""} ${tone}`}>{value}</dd>
+    <div className="flex items-baseline justify-between gap-4 border-t border-hair py-[0.4rem]">
+      <dt className="text-soft">{label}</dt>
+      <dd className={`text-right [overflow-wrap:anywhere] ${figure} ${idStyle}`}>{value}</dd>
     </div>
   );
 }
@@ -32,9 +34,9 @@ export function EvidenceChips({ chips, entityId }: { chips: EvidenceChip[]; enti
   const rows = chips.slice(0, 6);
   return (
     <div>
-      {rows.length === 0 && <p className="text-sm text-ink-2">No Qloo evidence recorded for this entity.</p>}
+      {rows.length === 0 && <p className="text-ui text-soft">No Qloo evidence recorded for this entity.</p>}
       {(rows.length > 0 || entityId) && (
-        <dl aria-label="Qloo evidence" className="border-b border-rule text-sm">
+        <dl aria-label="Qloo evidence" className="border-b border-hair text-ui">
           {rows.map((chip, index) => (
             <Row key={`${chip.label}-${chip.value}-${index}`} label={chip.label} value={chip.value} />
           ))}
