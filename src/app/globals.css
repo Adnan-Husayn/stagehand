@@ -70,6 +70,8 @@
     --scene-k: 1;
     --scene-reach: 0px;
     --scene-lift: 0px;
+    --scene-throw: 0px;
+    --ease-lamp: cubic-bezier(0.23, 1, 0.32, 1);
     position: absolute;
     top: 0;
     left: 0;
@@ -161,6 +163,109 @@
 
   .scene-breathe {
     animation: lamp-breathe 6.5s ease-in-out infinite alternate;
+  }
+
+  /*
+   * The rig. StageScene flips attributes and these rules move between the states with
+   * transitions, so a call that lands mid-flight retargets instead of restarting. Coming on is
+   * quick and settling is slow.
+   */
+  .scene-glow,
+  .scene-wash {
+    opacity: 0;
+    transition: opacity 0.9s var(--ease-lamp);
+  }
+
+  /* A work view warms the dark lamps to a dim lens glow, one after the other. */
+  .scene[data-view="work"] .scene-glow {
+    opacity: 0.2;
+    transition-delay: calc(var(--i) * 90ms);
+  }
+
+  /* A finished step: the lamp flares, then holds low. A second pass holds brighter. */
+  .scene .scene-lamp[data-level="2"] .scene-glow {
+    opacity: 0.58;
+    transition: opacity 0.9s var(--ease-lamp);
+  }
+
+  .scene .scene-lamp[data-level="3"] .scene-glow {
+    opacity: 0.82;
+    transition: opacity 0.9s var(--ease-lamp);
+  }
+
+  .scene .scene-lamp[data-struck] .scene-glow {
+    opacity: 1;
+    transition: opacity 0.14s var(--ease-lamp);
+  }
+
+  .scene-flare {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 0.9s var(--ease-lamp);
+  }
+
+  .scene-lamp[data-struck] .scene-flare {
+    transform: scale(1.4);
+    transition-duration: 0.14s;
+  }
+
+  /* The result: every lamp that was lit rises together, the rest lift a little. */
+  .scene[data-wash="true"] .scene-glow {
+    opacity: 0.4;
+    transition: opacity 1.2s var(--ease-lamp);
+  }
+
+  .scene[data-wash="true"] .scene-lamp:not([data-level="0"]) .scene-glow,
+  .scene[data-wash="true"] .scene-wash {
+    opacity: 1;
+    transition: opacity 1.2s var(--ease-lamp);
+  }
+
+  /* While a run is going the key lamp, its beam and its pool sweep together from the lens. */
+  .scene-swing {
+    transform-origin: 0 28px;
+  }
+
+  .scene-beam {
+    transform-origin: 16.3% 0;
+  }
+
+  .scene-swing,
+  .scene-beam,
+  .scene-pool {
+    transition: transform 0.7s var(--ease-lamp);
+  }
+
+  .scene[data-swing] .scene-swing,
+  .scene[data-swing] .scene-beam,
+  .scene[data-swing] .scene-pool {
+    transition: transform 2.4s cubic-bezier(0.45, 0, 0.55, 1);
+  }
+
+  .scene[data-swing="a"] .scene-swing,
+  .scene[data-swing="a"] .scene-beam {
+    transform: rotate(-4deg);
+  }
+
+  .scene[data-swing="b"] .scene-swing,
+  .scene[data-swing="b"] .scene-beam {
+    transform: rotate(4deg);
+  }
+
+  .scene[data-swing="a"] .scene-pool {
+    transform: translateX(var(--scene-throw));
+  }
+
+  .scene[data-swing="b"] .scene-pool {
+    transform: translateX(calc(var(--scene-throw) * -1));
+  }
+
+  /* The cut: everything that gives light is out in about a tenth of a second. */
+  .scene[data-cut="true"] .scene-glow,
+  .scene[data-cut="true"] .scene-wash,
+  .scene[data-cut="true"] .scene-light {
+    opacity: 0 !important;
+    transition: opacity 0.12s var(--ease-lamp) !important;
   }
 
   .grain {
@@ -639,7 +744,7 @@
   /* The one working lamp comes up with the page. */
   .js .scene-light {
     opacity: 0;
-    transition: opacity 1.4s cubic-bezier(0.23, 1, 0.32, 1) 0.2s;
+    transition: opacity 0.8s cubic-bezier(0.23, 1, 0.32, 1) 0.1s;
   }
 
   .is-ready .scene-light {

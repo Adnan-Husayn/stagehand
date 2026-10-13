@@ -1,18 +1,25 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, type CSSProperties, type RefObject } from "react";
+
+import { prefersReducedMotion } from "./motion";
 
 /** What the rest of the page can ask the lights to do. */
 export interface StageRig {
-  /** Lamps come up one at a time, each with a short flicker. */
+  /** The house comes back up after a cut. On a work view the dark lamps warm one at a time. */
   strike: (stagger?: number) => void;
-  /** All lamps and the follow spot go out. */
+  /** Every lamp snaps dark, just ahead of the blackout, and the run's lamps are forgotten. */
   cut: () => void;
-  /** A brief surge on one beam. */
+  /**
+   * Lights the lamp for one finished step, counting from the left of the truss. Past the last
+   * lamp it starts again from the left and burns those brighter.
+   */
   pulse: (index: number) => void;
-  /** Beams sweep faster while a run is going. */
+  /** While a run is going the key lamp sweeps slowly. Starting a search clears the last run. */
   search: (on: boolean) => void;
-  /** Point the follow spot at a screen position. */
+  /** A run came back with a result: every lit lamp rises into a wash. */
+  wash: () => void;
+  /** Kept for callers. The key lamp stays on the mic, so this does nothing. */
   aim: (clientX: number, clientY: number) => void;
 }
 
@@ -23,6 +30,9 @@ const EDGE = "rgba(168,186,214,0.3)";
 const FAINT = "rgba(168,186,214,0.16)";
 const AMBER = "#ffb44a";
 
+/** How long a lamp flares when it is struck, and one leg of the key lamp's sweep. */
+const STRUCK_MS = 420;
+const SWEEP_MS = 2400;
 /** Below this width the page is one column and the scene is only the truss and a short throw. */
 const WIDE = 1024;
 /** How far the key lamp's pool reaches left of the mic, in stage units. The beam shares it. */
@@ -48,44 +58,63 @@ const LAMPS: { at: string; tilt: number; small?: boolean }[] = [
  * One par can on its yoke. The origin is the underside of the truss, where the clamp bites. Dark
  * lamps are placed along the truss drawing; the lit one is its own drawing on the centre line.
  */
-function Lamp({ at, tilt, lit, small }: { at?: string; tilt: number; lit?: boolean; small?: boolean }) {
+function Lamp({
+  at,
+  tilt,
+  lit,
+  small,
+  order = 0,
+}: {
+  at?: string;
+  tilt: number;
+  lit?: boolean;
+  small?: boolean;
+  order?: number;
+}) {
   const place = lit ? { width: 1, height: 1 } : { x: at, y: 18 };
   const name = lit ? "scene-key" : small ? "scene-lamp scene-lamp-small" : "scene-lamp";
   return (
-    <svg {...place} overflow="visible" className={name}>
+    <svg
+      {...place}
+      overflow="visible"
+      className={name}
+      data-level={lit ? undefined : "0"}
+      style={{ "--i": order } as CSSProperties}
+    >
       <g transform="scale(0.7)">
         <rect x="-3.5" y="-5" width="7" height="12" rx="1.5" fill={BODY} stroke={EDGE} strokeWidth="1" />
         <path d="M-15 31V13q0-5 5-5h20q5 0 5 5v18" fill="none" stroke={BODY} strokeWidth="4" />
         <path d="M-15 31V13q0-5 5-5h20q5 0 5 5v18" fill="none" stroke={FAINT} strokeWidth="1" />
-        <g transform={`rotate(${tilt} 0 28)`}>
-          <path d="M-9 20q0-8 9-8t9 8v24h-18z" fill={BODY} />
-          <path d="M-9 44V20q0-8 9-8" fill="none" stroke={EDGE} strokeWidth="1" />
-          <rect
-            x="-13"
-            y="44"
-            width="26"
-            height="5"
-            rx="1"
-            fill={BODY}
-            stroke={lit ? "rgba(255,180,74,0.7)" : EDGE}
-            strokeWidth="1"
-          />
-          <ellipse cx="0" cy="49.5" rx="11.5" ry="3" fill={DEEP} stroke={FAINT} strokeWidth="1" />
-          {lit && (
-            <g className="scene-light">
-              <defs>
-                <radialGradient id="scene-flare">
-                  <stop offset="0" stopColor={AMBER} stopOpacity="0.55" />
-                  <stop offset="0.35" stopColor={AMBER} stopOpacity="0.16" />
-                  <stop offset="1" stopColor={AMBER} stopOpacity="0" />
-                </radialGradient>
-              </defs>
-              <g className="scene-breathe">
-                <circle cx="0" cy="50" r="30" fill="url(#scene-flare)" />
+        <g className={lit ? "scene-swing" : undefined}>
+          <g transform={`rotate(${tilt} 0 28)`}>
+            <path d="M-9 20q0-8 9-8t9 8v24h-18z" fill={BODY} />
+            <path d="M-9 44V20q0-8 9-8" fill="none" stroke={EDGE} strokeWidth="1" />
+            <rect
+              x="-13"
+              y="44"
+              width="26"
+              height="5"
+              rx="1"
+              fill={BODY}
+              stroke={lit ? "rgba(255,180,74,0.7)" : EDGE}
+              strokeWidth="1"
+            />
+            <ellipse cx="0" cy="49.5" rx="11.5" ry="3" fill={DEEP} stroke={FAINT} strokeWidth="1" />
+            {lit ? (
+              <g className="scene-light">
+                <g className="scene-breathe">
+                  <circle cx="0" cy="50" r="30" fill="url(#scene-flare)" />
+                  <ellipse cx="0" cy="49.5" rx="11.5" ry="3" fill="#ffe7bd" />
+                </g>
+              </g>
+            ) : (
+              <g className="scene-glow">
+                <circle className="scene-flare" cx="0" cy="50" r="24" fill="url(#scene-flare)" />
+                <polygon points="-10,50 10,50 15,68 -15,68" fill="url(#scene-nub)" />
                 <ellipse cx="0" cy="49.5" rx="11.5" ry="3" fill="#ffe7bd" />
               </g>
-            </g>
-          )}
+            )}
+          </g>
         </g>
         <circle cx="-15" cy="29" r="2.2" fill={BODY} stroke={FAINT} strokeWidth="1" />
         <circle cx="15" cy="29" r="2.2" fill={BODY} stroke={FAINT} strokeWidth="1" />
@@ -108,6 +137,7 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
 export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null>; view: string }) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const floorRef = useRef<HTMLDivElement>(null);
+  const resetRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -187,7 +217,7 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
       frame = 0;
       const pad = parseFloat(getComputedStyle(main!).paddingTop) || 56;
       // The truss and its lamps shrink with the space above the headline so they never reach it.
-      const unit = clamp(pad / 56, 0.56, 1);
+      const unit = clamp(pad / 56, 0.46, 1);
       const top = main!.offsetTop;
       set("--scene-top", `${top}px`);
       set("--scene-u", unit.toFixed(3));
@@ -220,20 +250,83 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
     };
   }, [view]);
 
+  // The rig only flips attributes. CSS transitions do the rest, so a call that lands in the
+  // middle of another simply retargets, and there is no frame loop.
   useEffect(() => {
-    // The lamps are wired to these calls in the next step. For now the scene is one still state
-    // and the blackout between views is the overlay that sits above it.
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const timers = new Set<number>();
+    let sweep = 0;
+
+    const all = () => Array.from(scene.querySelectorAll<SVGElement>(".scene-lamp"));
+    /** The lamps on show at this size, left to right. */
+    const hung = () => all().filter((lamp) => lamp.style.visibility !== "hidden" && getComputedStyle(lamp).display !== "none");
+
+    function reset() {
+      timers.forEach((id) => window.clearTimeout(id));
+      timers.clear();
+      for (const lamp of all()) {
+        lamp.dataset.level = "0";
+        delete lamp.dataset.struck;
+      }
+      delete scene!.dataset.wash;
+    }
+
+    function settle() {
+      window.clearInterval(sweep);
+      sweep = 0;
+      delete scene!.dataset.swing;
+    }
+
+    resetRef.current = reset;
     rigRef.current = {
-      strike() {},
-      cut() {},
-      pulse() {},
-      search() {},
+      strike() {
+        delete scene.dataset.cut;
+      },
+      cut() {
+        scene.dataset.cut = "true";
+        reset();
+      },
+      pulse(index) {
+        const lamps = hung();
+        if (lamps.length === 0 || index < 0) return;
+        const lamp = lamps[index % lamps.length];
+        lamp.dataset.level = index >= lamps.length ? "3" : "2";
+        lamp.dataset.struck = "true";
+        const id = window.setTimeout(() => {
+          timers.delete(id);
+          delete lamp.dataset.struck;
+        }, STRUCK_MS);
+        timers.add(id);
+      },
+      search(on) {
+        settle();
+        if (!on) return;
+        reset();
+        // With reduced motion the lamps still come on one by one, but nothing moves.
+        if (prefersReducedMotion()) return;
+        scene.dataset.swing = "a";
+        sweep = window.setInterval(() => {
+          scene.dataset.swing = scene.dataset.swing === "a" ? "b" : "a";
+        }, SWEEP_MS);
+      },
+      wash() {
+        scene.dataset.wash = "true";
+      },
       aim() {},
     };
     return () => {
+      settle();
+      reset();
+      resetRef.current = null;
       rigRef.current = null;
     };
   }, [rigRef]);
+
+  // With reduced motion there is no blackout, so nothing cuts the rig between views.
+  useEffect(() => {
+    if (prefersReducedMotion() && view === "input") resetRef.current?.();
+  }, [view]);
 
   return (
     <div ref={sceneRef} aria-hidden="true" className="scene" data-view={view === "input" ? "input" : "work"}>
@@ -243,14 +336,32 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
             <path d="M0 16L12 2L24 16" fill="none" stroke={BODY} strokeWidth="3" />
             <path d="M0 16L12 2" fill="none" stroke={FAINT} strokeWidth="1" />
           </pattern>
+          <radialGradient id="scene-flare">
+            <stop offset="0" stopColor={AMBER} stopOpacity="0.55" />
+            <stop offset="0.35" stopColor={AMBER} stopOpacity="0.16" />
+            <stop offset="1" stopColor={AMBER} stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="scene-nub" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={AMBER} stopOpacity="0.5" />
+            <stop offset="1" stopColor={AMBER} stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="scene-haze" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={AMBER} stopOpacity="0.13" />
+            <stop offset="1" stopColor={AMBER} stopOpacity="0" />
+          </linearGradient>
         </defs>
         <rect x="0" y="0" width="100%" height="18" fill="url(#scene-lace)" />
         <rect x="0" y="0" width="100%" height="3.5" fill={BODY} />
         <rect x="0" y="0" width="100%" height="1" fill={EDGE} />
         <rect x="0" y="14.5" width="100%" height="3.5" fill={BODY} />
         <rect x="0" y="14.5" width="100%" height="1" fill={FAINT} />
-        {LAMPS.map((lamp) => (
-          <Lamp key={lamp.at} {...lamp} />
+        {/* The wash: warm air under the truss and a lit edge along its lower chord. */}
+        <g className="scene-wash">
+          <rect x="0" y="18" width="100%" height="36" fill="url(#scene-haze)" />
+          <rect x="0" y="17" width="100%" height="1" fill={AMBER} opacity="0.5" />
+        </g>
+        {LAMPS.map((lamp, index) => (
+          <Lamp key={lamp.at} {...lamp} order={index} />
         ))}
       </svg>
 
@@ -381,8 +492,22 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
             <path d="M856 128V108q0-2 2-2h60" fill="none" stroke={EDGE} strokeWidth="1" />
           </g>
 
+          {/* In the wash the whole stage comes up and the tops of the gear catch it. */}
+          <g className="scene-wash scene-gear" fill="none" stroke={AMBER} strokeWidth="1">
+            <ellipse cx="560" cy="244" rx="460" ry="16" fill={AMBER} stroke="none" opacity="0.1" />
+            <g opacity="0.6">
+              <path d="M196 222.5H452M200 156q22 -7 44 0M238 174H274M385 160H427" />
+              <path d="M286.6 175A34 36 0 0 1 346 158.8" />
+              <path d="M234 99q32 -9 64 0" transform="rotate(-10 266 99)" />
+              <path d="M365 116q35 -10 70 0" transform="rotate(8 400 116)" />
+              <path d="M285 119h30" transform="rotate(-10 300 131)" />
+              <path d="M332 118h36" transform="rotate(9 350 132)" />
+              <path d="M485 236H541M586 124h70M718 186h64M858 106h60" />
+            </g>
+          </g>
+
           {/* The pool the one lit lamp throws. It is aimed off the mic, toward the kit. */}
-          <g className="scene-light">
+          <g className="scene-light scene-pool">
             <g className="scene-breathe">
               <ellipse cx="162" cy="241" rx="92" ry="15" fill="url(#scene-pool)" />
               <rect x="84" y="262" width="160" height="1.5" fill="url(#scene-lip)" />

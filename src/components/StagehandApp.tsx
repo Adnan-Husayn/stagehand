@@ -28,16 +28,6 @@ const MAX_TRACE_STEPS = 300;
 const DARK_MS = 280;
 const HOLD_MS = 140;
 
-/** Which beam answers which tool. Anything else (the submit tools) uses the last one. */
-const BEAM_FOR_TOOL: Record<string, number> = {
-  resolve_city: 1,
-  find_local_places: 1,
-  search_entities: 2,
-  get_insights: 3,
-  compare_audiences: 3,
-  get_location_insights: 3,
-};
-
 const STEPS: { view: View; label: string }[] = [
   { view: "input", label: "Venue" },
   { view: "results", label: "Shortlist" },
@@ -235,15 +225,6 @@ export function StagehandApp() {
     headingRef.current?.focus({ preventScroll: true });
   }, [view]);
 
-  // When the shortlist lands, the follow spot settles on the first ticket.
-  useEffect(() => {
-    if (view !== "results" || !shortlist) return;
-    const first = document.querySelector(".ticket");
-    if (!first) return;
-    const box = first.getBoundingClientRect();
-    rigRef.current?.aim(box.left + box.width * 0.3, box.top + box.height / 2);
-  }, [view, shortlist]);
-
   function clearTimers() {
     timers.current.forEach((id) => window.clearTimeout(id));
     timers.current = [];
@@ -308,10 +289,8 @@ export function StagehandApp() {
         (event) => {
           if (event.type === "trace") {
             setTrace((prev) => [...prev, event.step].slice(-MAX_TRACE_STEPS));
-            // The beams answer each tool call and each result.
-            if (event.step.kind === "tool_call") {
-              rigRef.current?.pulse((event.step.tool && BEAM_FOR_TOOL[event.step.tool]) || 4);
-            } else if (event.step.kind === "tool_result") {
+            // Each step that comes back lights the next lamp along the truss.
+            if (event.step.kind === "tool_result") {
               rigRef.current?.pulse(results);
               results += 1;
             }
@@ -335,7 +314,9 @@ export function StagehandApp() {
       if (controllerRef.current === controller) {
         controllerRef.current = null;
         rigRef.current?.search(false);
-        if (!controller.signal.aborted) rigRef.current?.pulse(2);
+        // Only a run that produced something earns the wash. After an error the lamps stay as
+        // they were, lit as far as the run got.
+        if (received && !controller.signal.aborted) rigRef.current?.wash();
       }
       setRunning(false);
     }
