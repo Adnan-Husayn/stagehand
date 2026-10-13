@@ -218,7 +218,7 @@ export function ActivityPanel({ trace, running }: { trace: TraceStep[]; running:
     >
       <header className="border-b border-hair px-5 pb-[0.95rem] pt-[1.1rem]">
         <div className="flex items-baseline justify-between gap-4">
-          <h2 id="activity-heading" className="font-display text-[1.6rem] font-medium italic leading-[1.1]">
+          <h2 id="activity-heading" className="title text-[1.6rem] italic">
             Agent activity
           </h2>
           <span

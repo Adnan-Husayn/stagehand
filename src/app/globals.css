@@ -20,6 +20,19 @@
     min-height: 100vh;
     line-height: 1.55;
     text-rendering: optimizeLegibility;
+    font-kerning: normal;
+    font-optical-sizing: auto;
+  }
+
+  /* No widows at the end of a paragraph, and short headings break into even lines. */
+  p,
+  li {
+    text-wrap: pretty;
+  }
+
+  h2,
+  h3 {
+    text-wrap: balance;
   }
 
   ::placeholder {
@@ -194,10 +207,16 @@
   .display {
     @apply font-display;
     font-weight: 400;
-    font-size: clamp(2.85rem, 6.6vw, 6.9rem);
+    /* The cap keeps "for your venue," on one line once the column stops growing. */
+    font-size: clamp(2.85rem, 6.6vw, 6.4rem);
     line-height: 0.94;
     letter-spacing: -0.025em;
     font-variation-settings: "opsz" 54;
+  }
+
+  /* The second half of the landing headline always starts its own line. */
+  .display > em.turn {
+    display: block;
   }
 
   .display em {
@@ -208,7 +227,28 @@
   .display-work {
     margin-top: 1.1rem;
     font-size: clamp(2.5rem, 5.4vw, 5rem);
+    font-variation-settings: "opsz" 44;
+    text-wrap: balance;
     overflow-wrap: anywhere;
+  }
+
+  /*
+   * Bodoni below headline size. Left to itself the optical size follows the font size and the
+   * hairlines thin out to nothing on a dark room, so these are set from a sturdier cut.
+   */
+  .title {
+    @apply font-display font-medium;
+    line-height: 1.1;
+    letter-spacing: 0.005em;
+    font-variation-settings: "opsz" 20;
+  }
+
+  /* Big italic figures: step numbers and ranks. Cut low so the 1 is not a bare hairline. */
+  .numeral {
+    @apply font-display font-medium italic;
+    line-height: 1;
+    font-variant-numeric: lining-nums;
+    font-variation-settings: "opsz" 14;
   }
 
   .w {

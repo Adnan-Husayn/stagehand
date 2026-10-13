@@ -109,7 +109,7 @@ function ErrorPanel({ message, onRetry }: { message: string; onRetry?: () => voi
   return (
     <div role="alert" className="fade-up rounded-md border border-stop/60 bg-panel/95 p-5">
       <p className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-stop">Run stopped</p>
-      <p className="mt-2 font-display text-[1.6rem] font-medium italic leading-[1.1]">Stagehand could not finish this run.</p>
+      <p className="title mt-2 text-[1.6rem] italic">Stagehand could not finish this run.</p>
       <p className="mt-2 max-w-[62ch] break-words text-lit">{message}</p>
       {onRetry && (
         <button type="button" onClick={onRetry} className="btn btn-primary mt-5">
@@ -129,7 +129,7 @@ function ProgressSteps({ view }: { view: View }) {
         return (
           <li
             key={step.view}
-            className={`flex items-baseline gap-2 ${active ? "font-semibold text-key" : ""}`}
+            className={`flex items-baseline gap-2 font-medium ${active ? "text-key" : ""}`}
             aria-current={active ? "step" : undefined}
           >
             <span className="font-mono text-xs font-normal">{index + 1}</span>
@@ -408,7 +408,7 @@ export function StagehandApp() {
         <button
           type="button"
           onClick={startOver}
-          className="inline-flex items-center gap-[0.65rem] font-display text-[1.6rem] font-medium italic leading-none tracking-[-0.01em]"
+          className="title inline-flex items-center gap-[0.65rem] text-[1.6rem] italic leading-none"
           aria-label="Stagehand home"
         >
           <BrandMark />
@@ -446,7 +446,7 @@ export function StagehandApp() {
                   className="display"
                 >
                   <Words text="Shortlist artists for your venue," from={0} />{" "}
-                  <em>
+                  <em className="turn">
                     <Words text="then plan the promotion." from={5} />
                   </em>
                 </h1>
@@ -463,14 +463,14 @@ export function StagehandApp() {
               </div>
 
               <div className="intro intro-how min-w-0 lg:col-start-1 lg:row-start-2 lg:self-end">
-                <h2 id="how-heading" className="label leading-none tracking-[0.14em]">
+                <h2 id="how-heading" className="label">
                   How a run goes
                 </h2>
                 <ol aria-labelledby="how-heading" className="mt-4 grid gap-6 sm:grid-cols-3">
                   {HOW_IT_RUNS.map((step, index) => (
                     <li key={step.title} className="border-t border-hair pt-[0.9rem]">
                       <span
-                        className="mb-2 block font-display text-[2.6rem] italic leading-none text-key"
+                        className="numeral mb-2 block text-[2.6rem] text-key"
                         aria-hidden="true"
                       >
                         {index + 1}

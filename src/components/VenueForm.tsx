@@ -200,7 +200,7 @@ export function VenueForm({
   return (
     <form onSubmit={handleSubmit} noValidate aria-labelledby="sheet-heading" aria-describedby="venue-form-help" className="desk">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <h2 id="sheet-heading" className="font-display text-[1.9rem] font-medium italic leading-[1.1]">
+        <h2 id="sheet-heading" className="title text-[1.9rem] italic">
           Your venue
         </h2>
         {showSample && (

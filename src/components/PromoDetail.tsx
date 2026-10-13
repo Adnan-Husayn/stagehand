@@ -70,7 +70,7 @@ function Section({
   return (
     <section aria-labelledby={id} className="mt-11">
       <div className="flex items-baseline justify-between gap-4 border-b border-hair pb-2">
-        <h2 id={id} className="font-display text-[clamp(1.8rem,3vw,2.5rem)] font-medium italic leading-[1.1]">
+        <h2 id={id} className="title text-[clamp(1.8rem,3vw,2.5rem)] italic">
           {title}
         </h2>
         {count && <p className="font-mono text-sm text-lit">{count}</p>}
@@ -172,7 +172,7 @@ export function PromoDetail({ plan }: { plan: PromoPlan }) {
                 <p className="pt-[0.45rem] font-mono text-2xs font-medium uppercase leading-[1.3] tracking-[0.12em] text-key xl:col-start-1 xl:row-span-2 xl:row-start-1">
                   {kindHeading(partner.kind, 1)}
                 </p>
-                <h3 className="font-display text-[clamp(1.5rem,2.2vw,1.9rem)] font-medium leading-[1.1] [overflow-wrap:anywhere] xl:col-start-2">
+                <h3 className="title text-[clamp(1.5rem,2.2vw,1.9rem)] [overflow-wrap:anywhere] xl:col-start-2">
                   {partner.name}
                 </h3>
                 <p className="mt-2 text-base text-soft xl:col-start-2">{partner.angle}</p>

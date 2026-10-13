@@ -20,7 +20,7 @@ export function ArtistCard({
     <article className={`ticket ticket-in ${top ? "ticket-top" : ""}`}>
       <div className="flex flex-col items-center gap-2 border-r border-dashed border-field px-2 py-5">
         <p
-          className={`font-display text-[3.4rem] italic leading-[0.9] sm:text-[4.6rem] ${
+          className={`numeral text-[3.4rem] leading-[0.9] sm:text-[4.6rem] ${
             top ? "text-key [text-shadow:0_0_28px_rgba(255,180,74,0.65)]" : "text-lit"
           }`}
           role="img"
@@ -33,7 +33,7 @@ export function ArtistCard({
       <div className="grid min-w-0 gap-x-8 gap-y-[1.1rem] px-[clamp(1rem,2vw,1.6rem)] pb-[1.4rem] pt-5 xl:grid-cols-[minmax(0,1fr)_16.5rem]">
         <div className="min-w-0">
           <h3
-            className={`font-display text-[clamp(1.6rem,2.6vw,2.3rem)] font-medium leading-[1.05] tracking-[-0.01em] [overflow-wrap:anywhere] ${
+            className={`title text-[clamp(1.6rem,2.6vw,2.3rem)] leading-[1.05] [overflow-wrap:anywhere] ${
               top ? "italic" : ""
             }`}
           >
