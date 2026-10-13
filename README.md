@@ -12,16 +12,16 @@ Stagehand's output is a set of taste relationships: which artists over-index wit
 
 | Step | Call | Purpose |
 |---|---|---|
-| Resolve city | `/search`, type `locality` | City to locality id |
-| Local places | `/search`, type `place`, `filter.location` | Local taste signals |
+| Resolve city | `/search`, type `locality` | City to locality id and coordinates |
+| Local places | `/search`, type `place`, `filter.location` as `lat,lon` | Local taste signals |
 | Seed artists | `/search`, type `artist` | Seed names to artist ids |
 | Local shortlist | `/v2/insights`, artists, place ids | Artists over-indexing with local audiences |
 | Seed shortlist | `/v2/insights`, artists, seed ids | Artists over-indexing with seed fans |
 | Overlap | Two insights calls, compared locally | Artists in both audiences |
 | Cross-domain promo | `/v2/insights` per brand, podcast, movie or tv_show, artist id | Partner candidates |
-| Local promo | `/v2/insights`, places, `filter.location`, artist id | Local partner candidates |
+| Local promo | `/v2/insights`, places, `filter.location` as the locality id, artist id | Local partner candidates |
 
-Exact parameters and unverified items are in [`docs/QLOO_NOTES.md`](docs/QLOO_NOTES.md).
+Exact parameters, live test results and unverified items are in [`docs/QLOO_NOTES.md`](docs/QLOO_NOTES.md).
 
 ## How the agent works
 
@@ -30,7 +30,8 @@ The browser posts to `POST /api/agent` and receives trace events and the result 
 Two submit tools end a run. `submit_shortlist` returns 3 to 8 artists for a city. `submit_promo_plan` returns 3 to 6 partners and 2 to 5 ad targets for one artist. Each submit checks its input against the same run's results and rejects any id it did not receive. Evidence chips are built from those Qloo responses, not from model text.
 
 - **Seed exclusion.** Seed artists are never recommended back. Their ids go to Qloo as `filter.exclude.entities` on artist calls, and `submit_shortlist` also rejects them by id or normalised name.
-- **Local place fallback.** Lookups try the locality id, then the city name with its region, then the city name alone. Place search adds a text search last. The activity trace shows which strategy worked.
+- **City matching.** Qloo's locality search is fuzzy, so Stagehand accepts a locality only when its name matches the venue's city, and it uses the state or country to choose between cities that share a name.
+- **Local place fallback.** Place search filters by the locality's coordinates. If the city has no locality in Qloo, it falls back to a text search and keeps only places whose address names the city. Local place insights filter by the locality id first. The activity trace shows which strategy worked.
 
 **Demo mode** runs when `QLOO_API_KEY` or `LLM_API_KEY` is missing. It runs the same tools and validators on a fixed call sequence with fictional sample data, and a banner says so.
 
@@ -140,13 +141,14 @@ A live run makes several sequential calls and can take a minute or more. The age
 
 ## Known limits
 
-- **The live path has not been run** against the Qloo hackathon API or a real model, so response shapes and tool-calling behaviour are unverified. The loop has run end to end only with a scripted stand-in model, and the live check has only run against a local stand-in server. Run `npm run live:check` once you have a model key, and run the app once with `DEBUG_QLOO=1` to confirm Qloo's real response shape. The normaliser accepts several envelopes.
-- **Model compatibility is unverified.** I have not confirmed that Gemini or DeepSeek accept Stagehand's tool schemas, how reliably either finishes a run, how long a run takes, or what a run costs. The DeepSeek cost in the docs is an estimate from assumed token counts.
-- **Some filters are unverified.** Locality-id place filters and city-name geocode parameters are not confirmed for `/search` or artist calls. Qloo ignores invalid parameters, so check the strategy in the activity trace to see whether results are local.
+- **Live testing is recent and small.** The live path was first run against the Qloo hackathon API on 14 October 2026, with DeepSeek's `deepseek-flash` as the model. Shortlist and promo runs finished for Asheville, Marfa, Portland (Maine) and Hebden Bridge, each in 15 to 35 seconds with 8 to 12 model calls. That is a handful of runs. `docs/QLOO_NOTES.md` lists what the live API returned.
+- **Other models are untested.** Gemini and Groq have not been run with Stagehand's tool schemas. The cost of a DeepSeek run was not measured. The figure in the docs is an estimate from assumed token counts.
+- **Small towns can be missing from Qloo.** When a city has no locality, Stagehand works from places whose address names the city and from the seed artists. When Qloo has no city, no places and no seed artists, the run stops with a message that says so.
+- **Local and seed audiences often do not overlap.** In the test runs `compare_audiences` usually found no shared artists between the local-place results and the seed results, so most shortlists leaned on the seed run.
 - **The artist location signal is experimental.** Its results are labelled, and an artist found only through it is rejected.
 - **Scores come from Qloo.** Stagehand does not compute affinity.
 - **Drafts need review.** Emails keep `[placeholders]` for facts the app does not know. Nothing is sent automatically.
-- **Rate limits are not stated** in Qloo's docs. A 429 response shows a clear error.
+- **Qloo rate limits.** The hackathon key's response headers report 5 requests per second and 10,000 per month. On a 429 the client waits about a second and retries once, then shows a clear error. Repeated calls within 10 minutes are served from an in-memory cache.
 - **Free models are weaker at tool calling.** Stagehand repairs malformed arguments, sends one reminder if the model answers in plain text, and rejects a submit that comes before any Qloo call. A small model can still fail a run. Try again, or set `LLM_MODEL` to a stronger one.
 - **Free tiers are rate limited.** On HTTP 429 the client retries up to three times, waiting at most about 20 seconds in total, then shows "model provider is rate limited". A free daily quota that runs out stays out until the provider resets it.
 - **Model requests time out after 60 seconds.** Google may use free-tier prompts to improve its products.
