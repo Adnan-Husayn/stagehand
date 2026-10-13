@@ -20,4 +20,8 @@ export interface NormalizedEntity {
   rating?: number;
   /** Affinity or score as Qloo returns it (query.affinity, affinity or score). Never computed. */
   affinity?: number;
+  /** Qloo's own one-line context: a street address for a place, the parent regions for a locality. */
+  disambiguation?: string;
+  /** Coordinates, present on localities and places. */
+  location?: { lat: number; lon: number };
 }

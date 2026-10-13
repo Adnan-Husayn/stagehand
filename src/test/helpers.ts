@@ -34,14 +34,14 @@ export function rawEntity(id: string, name: string, type = "urn:entity:artist", 
   return { entity_id: id, name, type, ...extra };
 }
 
-/** /search success: results is a bare array. */
+/** /search success: results is a bare array, with no success flag or duration. */
 export function searchOk(results: unknown[]): Reply {
-  return { status: 200, body: { success: true, duration: 0.01, results } };
+  return { status: 200, body: { results } };
 }
 
 /** /v2/insights success: results.entities. */
 export function insightsOk(entities: unknown[]): Reply {
-  return { status: 200, body: { success: true, results: { entities, duration: 0.01 } } };
+  return { status: 200, body: { success: true, results: { entities } } };
 }
 
 export function venue(overrides: Partial<VenueProfile> = {}): VenueProfile {

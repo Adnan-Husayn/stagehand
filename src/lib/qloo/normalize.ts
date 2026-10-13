@@ -19,8 +19,9 @@ function asNumber(value: unknown): number | undefined {
 }
 
 /**
- * Finds the array of entity objects in a Qloo response body. The live envelope is not yet
- * verified (see docs/QLOO_NOTES.md), so several plausible shapes are checked in order.
+ * Finds the array of entity objects in a Qloo response body. The live API returns
+ * { results: [...] } from /search and { success, results: { entities: [...] } } from
+ * /v2/insights (see docs/QLOO_NOTES.md). The other shapes are kept as a safety net.
  * Returns null when no array is found.
  */
 export function locateEntities(body: unknown): { path: string; items: unknown[] } | null {
@@ -47,14 +48,16 @@ export function normalizeEntity(raw: unknown): NormalizedEntity | null {
   const name = asString(raw.name);
   if (!id || !name) return null;
   // Insights items carry type "urn:entity" and the specific kind in subtype (for example "urn:entity:movie").
+  // Search items carry no type at all. Their kind is the first entry of a types array.
   const rawType = asString(raw.type);
   const subtype = asString(raw.subtype);
+  const listedType = Array.isArray(raw.types) ? raw.types.map(asString).find((t) => t?.startsWith("urn:entity:")) : undefined;
   const kind =
     rawType && rawType !== "urn:entity"
       ? rawType
       : subtype?.startsWith("urn:entity:")
         ? subtype
-        : rawType;
+        : (listedType ?? rawType);
   const entity: NormalizedEntity = {
     id,
     name,
@@ -66,12 +69,21 @@ export function normalizeEntity(raw: unknown): NormalizedEntity | null {
   const popularity = asNumber(raw.popularity) ?? asNumber(properties.popularity);
   if (popularity !== undefined) entity.popularity = popularity;
 
-  const rating = asNumber(raw.rating);
+  // Places carry their rating as properties.business_rating.
+  const rating = asNumber(raw.rating) ?? asNumber(properties.business_rating);
   if (rating !== undefined) entity.rating = rating;
 
   const query = isObject(raw.query) ? raw.query : {};
   const affinity = asNumber(query.affinity) ?? asNumber(raw.affinity) ?? asNumber(raw.score);
   if (affinity !== undefined) entity.affinity = affinity;
+
+  const disambiguation = asString(raw.disambiguation);
+  if (disambiguation) entity.disambiguation = disambiguation;
+
+  const location = isObject(raw.location) ? raw.location : {};
+  const lat = asNumber(location.lat);
+  const lon = asNumber(location.lon);
+  if (lat !== undefined && lon !== undefined) entity.location = { lat, lon };
 
   return entity;
 }
@@ -83,12 +95,12 @@ export function entitiesFromBody(body: unknown): NormalizedEntity[] {
   return located.items.map(normalizeEntity).filter((e): e is NormalizedEntity => e !== null);
 }
 
-/** /search returns { success, duration, results: [...] }. */
+/** /search returns { results: [...] }. An empty array means nothing matched. */
 export function entitiesFromSearchBody(body: unknown): NormalizedEntity[] {
   return entitiesFromBody(body);
 }
 
-/** /v2/insights returns { success, results: { entities: [...], duration } }. */
+/** /v2/insights returns { success, results: { entities: [...] } }. The live API sends no duration. */
 export function entitiesFromInsightsBody(body: unknown): { entities: NormalizedEntity[]; durationSec: number | null } {
   const duration = isObject(body)
     ? (asNumber(isObject(body.results) ? body.results.duration : undefined) ?? asNumber(body.duration))
@@ -96,8 +108,23 @@ export function entitiesFromInsightsBody(body: unknown): { entities: NormalizedE
   return { entities: entitiesFromBody(body), durationSec: duration ?? null };
 }
 
+/**
+ * Reads the message from an error body. The live API uses two shapes:
+ * { error: { reason, message, code } } from /search and { errors: [{ message, path }] } from /v2/insights.
+ * A flat { message, reason } body is also accepted.
+ */
 export function errorMessageFromBody(body: unknown): string | undefined {
   if (!isObject(body)) return undefined;
+  if (isObject(body.error)) {
+    const nested = asString(body.error.message) ?? asString(body.error.reason);
+    if (nested) return nested;
+  }
+  if (Array.isArray(body.errors)) {
+    const messages = body.errors
+      .map((item) => (isObject(item) ? asString(item.message) : undefined))
+      .filter((message): message is string => message !== undefined);
+    if (messages.length > 0) return messages.join(" ");
+  }
   return asString(body.message) ?? asString(body.reason);
 }
 

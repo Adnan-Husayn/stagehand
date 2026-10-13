@@ -6,6 +6,18 @@ import {
   errorMessageFromBody,
   normalizeEntity,
 } from "./normalize";
+import {
+  INSIGHTS_BAD_SIGNAL,
+  INSIGHTS_NO_SIGNAL,
+  insightItem,
+  insightPlace,
+  liveInsightsBody,
+  liveSearchBody,
+  localityItem,
+  placeItem,
+  SEARCH_BAD_LOCATION,
+  searchItem,
+} from "@/test/live-shapes";
 
 const artistA = { entity_id: "a-1", name: "Artist A", type: "urn:entity:artist", popularity: 0.5 };
 const artistB = { entity_id: "a-2", name: "Artist B", type: "urn:entity:artist" };
@@ -146,5 +158,56 @@ describe("describeResponseShape and errorMessageFromBody", () => {
     expect(errorMessageFromBody({ message: "bad filter" })).toBe("bad filter");
     expect(errorMessageFromBody({ reason: "Not Found" })).toBe("Not Found");
     expect(errorMessageFromBody(undefined)).toBeUndefined();
+  });
+});
+
+describe("live response shapes", () => {
+  it("reads the kind of a search item from its types array", () => {
+    const [artist] = entitiesFromSearchBody(liveSearchBody([searchItem("a-1", "Some Band", "artist")]));
+    expect(artist.type).toBe("urn:entity:artist");
+    expect(artist).not.toHaveProperty("subtype");
+  });
+
+  it("reads the kind of an insights item from its subtype and the affinity from query", () => {
+    const { entities, durationSec } = entitiesFromInsightsBody(liveInsightsBody([insightItem("b-1", "Some Brand", "brand", 0.98)]));
+    expect(entities[0]).toMatchObject({ type: "urn:entity:brand", affinity: 0.98, popularity: 0.97 });
+    expect(durationSec).toBeNull();
+  });
+
+  it("omits an empty disambiguation, as brands and podcasts send", () => {
+    const { entities } = entitiesFromInsightsBody(liveInsightsBody([insightItem("b-1", "Some Brand", "brand")]));
+    expect(entities[0]).not.toHaveProperty("disambiguation");
+  });
+
+  it("reads a place rating from properties.business_rating and keeps the address and coordinates", () => {
+    const [place] = entitiesFromSearchBody(liveSearchBody([placeItem("p-1", "Trades Club", "Holme St Hebden Bridge HX7 8EE United Kingdom", 53.74, -2.01)]));
+    expect(place).toMatchObject({
+      type: "urn:entity:place",
+      rating: 4.5,
+      disambiguation: "Holme St Hebden Bridge HX7 8EE United Kingdom",
+      location: { lat: 53.74, lon: -2.01 },
+    });
+    const { entities } = entitiesFromInsightsBody(liveInsightsBody([insightPlace("p-2", "Static Records", "110 N Lexington Ave Asheville, NC 28801")]));
+    expect(entities[0]).toMatchObject({ rating: 4.6, affinity: 0.9 });
+  });
+
+  it("drops a location that lacks either coordinate", () => {
+    const item = { ...localityItem("l-1", "Asheville", "North Carolina", 35.57, -82.55), location: { lat: 35.57 } };
+    expect(normalizeEntity(item)).not.toHaveProperty("location");
+  });
+
+  it("reads error messages from both live error shapes", () => {
+    expect(errorMessageFromBody(SEARCH_BAD_LOCATION)).toMatch(/^filter\.location: +must be in the form lat,lon/);
+    expect(errorMessageFromBody(INSIGHTS_NO_SIGNAL)).toBe("at least one valid signal or filter is required for entity insights");
+    expect(errorMessageFromBody(INSIGHTS_BAD_SIGNAL)).toMatch(/were invalid/);
+    expect(errorMessageFromBody({ error: {} })).toBeUndefined();
+    expect(errorMessageFromBody({ errors: [] })).toBeUndefined();
+  });
+
+  it("describes the live search envelope by key names only", () => {
+    const shape = JSON.parse(describeResponseShape(liveSearchBody([searchItem("a-1", "Secret Name", "artist")])));
+    expect(shape).toMatchObject({ topLevelKeys: ["results"], entitiesAt: "results", entityCount: 1 });
+    expect(shape.firstItemKeys).toContain("types");
+    expect(JSON.stringify(shape)).not.toContain("Secret Name");
   });
 });
