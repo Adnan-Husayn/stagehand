@@ -208,12 +208,15 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
     if (panel) observer.observe(panel);
     window.addEventListener("resize", queue);
     window.addEventListener("scroll", queue, { passive: true });
+    // Entrance animations move the panel, so the fit runs again when each one lands.
+    document.addEventListener("animationend", queue);
     void document.fonts?.ready.then(queue);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener("resize", queue);
       window.removeEventListener("scroll", queue);
+      document.removeEventListener("animationend", queue);
     };
   }, [view]);
 
