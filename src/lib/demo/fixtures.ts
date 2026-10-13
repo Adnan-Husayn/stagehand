@@ -12,6 +12,8 @@ export interface FixtureEntity {
   subtype?: string;
   popularity?: number;
   rating?: number;
+  disambiguation?: string;
+  location?: { lat: number; lon: number };
 }
 
 function slug(text: string): string {
@@ -115,7 +117,14 @@ export const SAMPLE_TV_SHOWS = make("tv_show", [
 export function sampleLocalityFor(query: string): FixtureEntity {
   const cleaned = query.trim().replace(/\s+/g, " ") || "Sample City";
   const name = cleaned;
-  return { id: `sample-locality-${slug(cleaned)}`, name, type: ENTITY_TYPE_URN.locality };
+  // The coordinates are a fixed placeholder. The sample places are not tied to any real spot.
+  return {
+    id: `sample-locality-${slug(cleaned)}`,
+    name,
+    type: ENTITY_TYPE_URN.locality,
+    disambiguation: `${name} (sample locality)`,
+    location: { lat: 0, lon: 0 },
+  };
 }
 
 export function poolForType(typeUrn: string): FixtureEntity[] {

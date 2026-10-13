@@ -11,7 +11,8 @@ import {
 } from "../types/stagehand";
 import type { RunContext } from "./context";
 import { InputError, objArr, objField, oneOf, optInt, optStrArr, str, strArr } from "./args";
-import { firstUsable, geocodeCandidates, type Attempt } from "./fallback";
+import { firstUsable, type Attempt } from "./fallback";
+import { mentionsCity, pickLocality, splitCity } from "./locality";
 import type { AgentTool, ToolOutcome } from "./types";
 
 const AD_PLATFORMS = ["meta", "instagram", "tiktok", "youtube", "spotify", "google", "podcast_ads", "local_radio", "other"] as const;
@@ -32,7 +33,8 @@ function slim(entity: NormalizedEntity, rank?: number): Record<string, unknown> 
     entity_id: entity.id,
     name: entity.name,
     type: entity.type,
-    ...(entity.subtype ? { subtype: entity.subtype } : {}),
+    ...(entity.subtype && entity.subtype !== entity.type ? { subtype: entity.subtype } : {}),
+    ...(entity.disambiguation && entity.disambiguation !== entity.name ? { context: entity.disambiguation } : {}),
     ...(rank !== undefined ? { rank } : {}),
     ...(entity.popularity !== undefined ? { popularity: entity.popularity } : {}),
     ...(entity.rating !== undefined ? { rating: entity.rating } : {}),
@@ -85,16 +87,27 @@ const resolveCity: AgentTool = {
   },
   run: guarded(async (input, ctx) => {
     const city = str(input, "city", 120);
-    const matches = await ctx.client.search({ query: city, types: [ENTITY_TYPE_URN.locality], take: 3 });
-    if (matches.length === 0) {
-      return fail(`Qloo found no locality for "${city}". Try the nearest larger city name.`);
+    const types = [ENTITY_TYPE_URN.locality];
+    // Qloo's locality search is fuzzy, so the pick must match the city by name (see locality.ts).
+    let matches = await ctx.client.search({ query: city, types, take: 10 });
+    let top = pickLocality(city, matches);
+    const bareName = splitCity(city).name;
+    if (!top && bareName && bareName !== city) {
+      matches = await ctx.client.search({ query: bareName, types, take: 10 });
+      top = pickLocality(city, matches);
     }
-    const top = matches[0];
+    if (!top) {
+      return fail(
+        `Qloo has no locality that matches "${city}" by name. Carry on without it: find_local_places falls back to a city-name search.`,
+      );
+    }
     ctx.localityId = top.id;
     ctx.localityName = top.name;
+    ctx.localityPoint = top.location ?? null;
+    const others = matches.filter((e) => e.id !== top.id).slice(0, 2);
     return ok(
-      { locality_id: top.id, locality_name: top.name, other_matches: matches.slice(1).map((e) => slim(e)) },
-      `Resolved to ${top.name}`,
+      { locality_id: top.id, locality_name: top.name, context: top.disambiguation ?? null, other_matches: others.map((e) => slim(e)) },
+      `Resolved to ${top.disambiguation ?? top.name}`,
     );
   }),
 };
@@ -132,7 +145,7 @@ const searchEntities: AgentTool = {
 const findLocalPlaces: AgentTool = {
   name: "find_local_places",
   description:
-    "List places (venues, bars, restaurants, cafes, shops) in the venue's city. These place ids are local taste signals for get_insights. Works even if resolve_city failed: Stagehand then falls back to a city-name search.",
+    "List places (venues, bars, restaurants, cafes, shops) in the venue's city. These place ids are local taste signals for get_insights. Works even if resolve_city failed: Stagehand then falls back to a city-name search and keeps only places whose address names the city.",
   input_schema: {
     type: "object",
     properties: {
@@ -147,27 +160,32 @@ const findLocalPlaces: AgentTool = {
     const city = ctx.venue.city;
     const types = [ENTITY_TYPE_URN.place];
 
+    // /search takes coordinates in filter.location. It rejects a locality id, and it ignores
+    // city-name filters without saying so. A text search is global, so its results are kept
+    // only when Qloo's address line names the venue's city.
     const attempts: Attempt<NormalizedEntity[]>[] = [];
-    const localityId = ctx.localityId;
-    if (localityId) {
+    const point = ctx.localityPoint;
+    if (point) {
       attempts.push({
-        name: "locality-id",
-        run: () => ctx.client.search({ query, types, take, filterLocation: localityId, filterRadiusMiles: 10 }),
+        name: "locality-point",
+        run: () =>
+          ctx.client.search({ query, types, take, filterLocation: `${point.lat},${point.lon}`, filterRadiusMiles: 10 }),
       });
     }
-    for (const candidate of geocodeCandidates(city)) {
-      attempts.push({
-        name: candidate.name,
-        run: () => ctx.client.search({ query, types, take, geocode: candidate.filter }),
-      });
-    }
+    const inCity = (found: NormalizedEntity[]) => found.filter((e) => mentionsCity(e, city)).slice(0, take);
     attempts.push({
       name: "text-search",
-      run: () => ctx.client.search({ query: `${query} ${city}`.slice(0, 200), types, take }),
+      run: async () => inCity(await ctx.client.search({ query: `${query} ${city}`.slice(0, 200), types, take: 20 })),
+    });
+    attempts.push({
+      name: "city-search",
+      run: async () => inCity(await ctx.client.search({ query: splitCity(city).name || city, types, take: 20 })),
     });
 
     const outcome = await firstUsable(attempts, (places) => places.length === 0);
     const places = outcome.value;
+    // Without a locality, a place confirmed to be in the city gives later local calls a point to filter on.
+    if (!ctx.localityPoint) ctx.localityPoint = places.find((e) => e.location)?.location ?? null;
     const label = `Local places "${query}"`;
     places.forEach((entity, i) => {
       ctx.remember(entity, "find_local_places", entityChips(entity, label, i + 1, places.length, []));
@@ -242,9 +260,24 @@ const getInsights: AgentTool = {
       if (localityId) {
         strategies.push({ name: "locality-id", run: () => ctx.client.insights({ ...base, filterLocation: localityId }) });
       }
-      for (const candidate of geocodeCandidates(ctx.venue.city)) {
-        strategies.push({ name: candidate.name, run: () => ctx.client.insights({ ...base, geocode: candidate.filter }) });
+      // Used when the locality did not resolve but a place in the city gave coordinates.
+      const point = ctx.localityPoint;
+      if (point && !localityId) {
+        strategies.push({
+          name: "place-point",
+          run: () => ctx.client.insights({ ...base, filterLocation: `POINT(${point.lon} ${point.lat})` }),
+        });
       }
+      // Qloo resolves the city text to its own best-matching locality, which can be a different
+      // town, so only places whose address names the venue's city are kept.
+      const city = ctx.venue.city;
+      strategies.push({
+        name: "location-query",
+        run: async () => {
+          const found = await ctx.client.insights({ ...base, filterLocationQuery: city });
+          return { ...found, entities: found.entities.filter((e) => mentionsCity(e, city)) };
+        },
+      });
       const outcome = await firstUsable(strategies, (o) => o.entities.length === 0);
       output = outcome.value;
       strategy = outcome.strategy;
@@ -257,7 +290,7 @@ const getInsights: AgentTool = {
     ctx.insightRuns.push(output.entities.map((e) => e.id));
 
     const signalNames = ids.slice(0, 3).map((id) => ctx.nameOf(id));
-    const localLabel = strategy?.startsWith("geocode") ? ctx.venue.city : (ctx.localityName ?? ctx.venue.city);
+    const localLabel = strategy === "locality-id" ? (ctx.localityName ?? ctx.venue.city) : ctx.venue.city;
     const signals = localOnly ? [...signalNames, `local to ${localLabel}`] : signalNames;
     const label = `Insights run ${runNumber}`;
     output.entities.forEach((entity, i) => {

@@ -5,7 +5,8 @@ import { runLiveAgent } from "./live";
 import { parseChatResponse, type ChatMessage, type ChatReply, type LlmClient } from "./llm";
 import { SHORTLIST_SYSTEM, shortlistUserMessage } from "./prompts";
 import { shortlistTools } from "./tools";
-import { insightsOk, makeContext, rawEntity, scriptedTransport, searchOk, type Handler } from "@/test/helpers";
+import { insightsOk, makeContext, scriptedTransport, searchOk, type Handler } from "@/test/helpers";
+import { insightItem, localityItem, placeItem, searchItem } from "@/test/live-shapes";
 
 interface Call {
   name: string;
@@ -52,14 +53,16 @@ function fakeModel(script: ChatReply[]): LlmClient & { seen: ChatMessage[][] } {
   };
 }
 
-const LOCALITY = rawEntity("loc-ash", "Asheville", "urn:entity:locality");
-const PLACE_A = rawEntity("place-a", "Mountain Taproom", "urn:entity:place");
-const PLACE_B = rawEntity("place-b", "Grey Eagle Records", "urn:entity:place");
-const VELVET = rawEntity("artist-velvet", "Velvet Anchor");
-const NIGHT = rawEntity("artist-night", "Night Ferry");
-const LARK = rawEntity("artist-lark", "The Larkspur Hour");
-const MARLOW = rawEntity("artist-marlow", "Marlow and the Tides");
-const COPPER = rawEntity("artist-copper", "Copper Tennis");
+// Fixtures use the live response shapes: search items list their kind in types, insights items in subtype.
+const LOCALITY = localityItem("loc-ash", "Asheville", "Buncombe, North Carolina, United States of America", 35.57, -82.55);
+const PLACE_A = placeItem("place-a", "Mountain Taproom", "101 Biltmore Ave Asheville, NC 28801");
+const PLACE_B = placeItem("place-b", "Grey Eagle Records", "185 Clingman Ave Asheville, NC 28801");
+const VELVET = searchItem("artist-velvet", "Velvet Anchor", "artist");
+const NIGHT = searchItem("artist-night", "Night Ferry", "artist");
+const LARK = insightItem("artist-lark", "The Larkspur Hour", "artist", 0.97);
+const MARLOW = insightItem("artist-marlow", "Marlow and the Tides", "artist", 0.95);
+const COPPER = insightItem("artist-copper", "Copper Tennis", "artist", 0.94);
+const VELVET_INSIGHT = insightItem("artist-velvet", "Velvet Anchor", "artist", 0.93);
 
 const handler: Handler = (path, params) => {
   if (path === "/search") {
@@ -71,7 +74,7 @@ const handler: Handler = (path, params) => {
   }
   if (path === "/v2/insights") {
     // The seeds come back too. The submit validator must still keep them out.
-    return insightsOk([LARK, MARLOW, COPPER, VELVET]);
+    return insightsOk([LARK, MARLOW, COPPER, VELVET_INSIGHT]);
   }
   return { status: 404, body: { message: "unknown path" } };
 };

@@ -66,8 +66,7 @@ describe("fixture transport: /search", () => {
     const located = await call("/search", {
       query: "record store",
       types: ENTITY_TYPE_URN.place,
-      "filter.geocode.name": "Asheville",
-      "filter.geocode.admin1_region": "NC",
+      "filter.location": "0,0",
       "filter.radius": "10",
     });
     expect(located.status).toBe(200);
@@ -113,7 +112,7 @@ describe("fixture transport: /v2/insights", () => {
     const combos: Record<string, string>[] = [
       { "signal.interests.entities": "sample-place-the-gilded-tap,sample-place-marrow-kitchen" },
       { "filter.location": "sample-locality-asheville-nc" },
-      { "filter.geocode.name": "Asheville", "filter.geocode.admin1_region": "NC" },
+      { "filter.location.query": "Asheville, NC" },
       { "signal.location.query": "Asheville, NC" },
       { "signal.interests.entities": "sample-artist-copper-tennis", "filter.location": "sample-locality-asheville-nc" },
     ];

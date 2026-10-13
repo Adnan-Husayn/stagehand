@@ -1,23 +1,27 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { clearQlooCache, QlooError } from "../qloo/client";
-import { firstUsable, geocodeCandidates } from "./fallback";
+import { firstUsable } from "./fallback";
 import { promoTools, shortlistTools } from "./tools";
 import {
   callTool,
   insightsOk,
   makeContext,
-  rawEntity,
   scriptedTransport,
   searchOk,
   type Handler,
   type Reply,
 } from "@/test/helpers";
+import { insightPlace, localityItem, placeItem, SEARCH_BAD_LOCATION } from "@/test/live-shapes";
 
-const LOCALITY = rawEntity("loc-asheville", "Asheville", "urn:entity:locality");
-const PLACE_A = rawEntity("place-gilded", "The Gilded Tap", "urn:entity:place");
-const PLACE_B = rawEntity("place-record", "Corner Record Bar", "urn:entity:place");
-const NO_RESULTS: Reply = { status: 404, body: { code: 404, reason: "Not Found", message: "No results" } };
-const BAD_PARAMS: Reply = { status: 400, body: { message: "bad filter" } };
+const LOCALITY = localityItem("loc-asheville", "Asheville", "Buncombe, North Carolina, United States of America", 35.57, -82.55);
+const POINT = "35.57,-82.55";
+const PLACE_A = placeItem("place-gilded", "The Gilded Tap", "12 College St Asheville, NC 28801");
+const PLACE_B = placeItem("place-record", "Corner Record Bar", "55 Haywood Rd Asheville, NC 28806", 35.58, -82.59);
+const PLACE_ELSEWHERE = placeItem("place-texas", "Live Music Bar", "437 McCarty Rd San Antonio, TX 78216", 29.5, -98.5);
+const INSIGHT_PLACE = insightPlace("place-gilded", "The Gilded Tap", "12 College St Asheville, NC 28801");
+const INSIGHT_ELSEWHERE = insightPlace("place-tipton", "Tipton Sports Academy", "Wednesbury Oak Rd Tipton DY4 0BS United Kingdom");
+const NO_RESULTS: Reply = searchOk([]);
+const BAD_PARAMS: Reply = { status: 400, body: SEARCH_BAD_LOCATION };
 const UNAUTHORIZED: Reply = { status: 401, body: { message: "bad key" } };
 const NOT_FOUND_PATH: Reply = { status: 404, body: { message: "path not found" } };
 
@@ -119,37 +123,12 @@ describe("firstUsable", () => {
   });
 });
 
-describe("geocodeCandidates", () => {
-  it("tries the region first and the bare city name second for 'City, ST'", () => {
-    expect(geocodeCandidates("Asheville, NC")).toEqual([
-      { name: "geocode-name+region", filter: { name: "Asheville", admin1Region: "NC" } },
-      { name: "geocode-name", filter: { name: "Asheville" } },
-    ]);
-  });
-
-  it("uses only the city name when no region is given", () => {
-    expect(geocodeCandidates("Nashville")).toEqual([{ name: "geocode-name", filter: { name: "Nashville" } }]);
-  });
-
-  it("keeps a two-letter third part as a country code", () => {
-    expect(geocodeCandidates("Lyon, Auvergne, fr")[0].filter).toEqual({
-      name: "Lyon",
-      admin1Region: "Auvergne",
-      countryCode: "FR",
-    });
-  });
-
-  it("returns nothing for a blank city", () => {
-    expect(geocodeCandidates(" , ")).toEqual([]);
-  });
-});
-
 describe("find_local_places fallback chain (mocked transport)", () => {
   beforeEach(() => clearQlooCache());
 
-  it("uses the locality id when it returns places", async () => {
+  it("searches around the locality's coordinates when they return places", async () => {
     const transport = scriptedTransport(
-      placeHandler((params) => (params["filter.location"] === "loc-asheville" ? searchOk([PLACE_A, PLACE_B]) : NO_RESULTS)),
+      placeHandler((params) => (params["filter.location"] === POINT ? searchOk([PLACE_A, PLACE_B]) : NO_RESULTS)),
     );
     const ctx = makeContext(transport);
     await callTool(ctx, tools, "resolve_city", { city: "Asheville, NC" });
@@ -157,19 +136,30 @@ describe("find_local_places fallback chain (mocked transport)", () => {
 
     expect(outcome.ok).toBe(true);
     if (outcome.ok) {
-      expect(outcome.content).toMatchObject({ strategy: "locality-id", attempts: ["locality-id: results"] });
-      expect(outcome.summary).toBe("2 places near Asheville via locality-id");
+      expect(outcome.content).toMatchObject({ strategy: "locality-point", attempts: ["locality-point: results"] });
+      expect(outcome.summary).toBe("2 places near Asheville via locality-point");
     }
-    expect(transport.calls.some((c) => c.params["filter.geocode.name"])).toBe(false);
+    const placeCalls = transport.calls.filter((c) => c.params.types === "urn:entity:place");
+    expect(placeCalls).toHaveLength(1);
+    expect(placeCalls[0].params).toMatchObject({ "filter.location": POINT, "filter.radius": "10" });
     expect(ctx.placeIds).toEqual(["place-gilded", "place-record"]);
   });
 
-  it("falls back to the city name with region when the locality id returns nothing", async () => {
+  it("never sends the locality id or a geocode filter to /search", async () => {
+    const transport = scriptedTransport(placeHandler(() => NO_RESULTS));
+    const ctx = makeContext(transport);
+    await callTool(ctx, tools, "resolve_city", { city: "Asheville, NC" });
+    await callTool(ctx, tools, "find_local_places", { query: "live music bar" });
+
+    const searches = transport.calls.filter((c) => c.path === "/search");
+    expect(searches.some((c) => c.params["filter.location"] === "loc-asheville")).toBe(false);
+    expect(searches.some((c) => Object.keys(c.params).some((key) => key.startsWith("filter.geocode")))).toBe(false);
+  });
+
+  it("falls back to a text search and keeps only places whose address names the city", async () => {
     const transport = scriptedTransport(
       placeHandler((params) =>
-        params["filter.geocode.name"] === "Asheville" && params["filter.geocode.admin1_region"] === "NC"
-          ? searchOk([PLACE_A])
-          : NO_RESULTS,
+        params.query === "live music bar Asheville, NC" ? searchOk([PLACE_ELSEWHERE, PLACE_A]) : NO_RESULTS,
       ),
     );
     const ctx = makeContext(transport);
@@ -177,19 +167,19 @@ describe("find_local_places fallback chain (mocked transport)", () => {
     const outcome = await callTool(ctx, tools, "find_local_places", { query: "live music bar" });
 
     expect(outcome.ok && outcome.content).toMatchObject({
-      strategy: "geocode-name+region",
-      attempts: ["locality-id: no results", "geocode-name+region: results"],
+      strategy: "text-search",
+      attempts: ["locality-point: no results", "text-search: results"],
     });
-    const geo = transport.calls.find((c) => c.params["filter.geocode.name"] === "Asheville");
-    expect(geo?.params["filter.geocode.admin1_region"]).toBe("NC");
+    expect(outcome.ok && outcome.summary).toMatch(/via text-search after locality-point: no results/);
+    expect(ctx.placeIds).toEqual(["place-gilded"]);
+    expect(ctx.knows("place-texas")).toBe(false);
   });
 
-  it("falls past a 400 from the locality id and then to the bare city name", async () => {
+  it("falls past a 400 from the coordinate search", async () => {
     const transport = scriptedTransport(
       placeHandler((params) => {
         if (params["filter.location"]) return BAD_PARAMS;
-        if (params["filter.geocode.admin1_region"]) return NO_RESULTS;
-        return searchOk([PLACE_B]);
+        return params.query === "Asheville" ? searchOk([PLACE_B]) : searchOk([PLACE_ELSEWHERE]);
       }),
     );
     const ctx = makeContext(transport);
@@ -197,47 +187,34 @@ describe("find_local_places fallback chain (mocked transport)", () => {
     const outcome = await callTool(ctx, tools, "find_local_places", { query: "record store" });
 
     expect(outcome.ok && outcome.content).toMatchObject({
-      strategy: "geocode-name",
-      attempts: ["locality-id: error 400", "geocode-name+region: no results", "geocode-name: results"],
+      strategy: "city-search",
+      attempts: ["locality-point: error 400", "text-search: no results", "city-search: results"],
     });
   });
 
-  it("skips the locality id when resolve_city never found one", async () => {
+  it("skips the coordinate search when resolve_city never found a locality, then remembers a point from a local place", async () => {
     const transport = scriptedTransport(
-      placeHandler((params) =>
-        params["filter.geocode.name"] === "Asheville" && !params["filter.geocode.admin1_region"] ? searchOk([PLACE_A]) : NO_RESULTS,
-      ),
+      placeHandler((params) => (params.query === "live music bar Asheville, NC" ? searchOk([PLACE_B]) : NO_RESULTS)),
     );
     const ctx = makeContext(transport);
-    const outcome = await callTool(ctx, tools, "find_local_places", { query: "live music bar" });
-
-    expect(outcome.ok && outcome.content).toMatchObject({ strategy: "geocode-name" });
-    expect(transport.calls.some((c) => c.params["filter.location"] !== undefined)).toBe(false);
-  });
-
-  it("reaches the text search last and labels it", async () => {
-    const transport = scriptedTransport(
-      placeHandler((params) => (params.query === "live music bar Asheville, NC" ? searchOk([PLACE_A]) : NOT_FOUND_PATH)),
-    );
-    const ctx = makeContext(transport);
-    await callTool(ctx, tools, "resolve_city", { city: "Asheville, NC" });
     const outcome = await callTool(ctx, tools, "find_local_places", { query: "live music bar" });
 
     expect(outcome.ok && outcome.content).toMatchObject({ strategy: "text-search" });
-    expect(outcome.ok && outcome.summary).toMatch(/via text-search after/);
+    expect(transport.calls.some((c) => c.params["filter.location"] !== undefined)).toBe(false);
+    expect(ctx.localityPoint).toEqual({ lat: 35.58, lon: -82.59 });
   });
 
   it("reports no places, with every attempt, when all strategies come back empty", async () => {
-    const transport = scriptedTransport(placeHandler(() => NO_RESULTS));
+    const transport = scriptedTransport(placeHandler(() => searchOk([PLACE_ELSEWHERE])));
     const ctx = makeContext(transport);
-    await callTool(ctx, tools, "resolve_city", { city: "Asheville, NC" });
     const outcome = await callTool(ctx, tools, "find_local_places", { query: "live music bar" });
 
     expect(outcome.ok).toBe(true);
     if (outcome.ok) {
       expect(outcome.content).toMatchObject({ strategy: null, places: [] });
-      expect(outcome.summary).toMatch(/^No places found near Asheville; tried locality-id: no results/);
+      expect(outcome.summary).toBe("No places found near Asheville, NC; tried text-search: no results; city-search: no results");
     }
+    expect(ctx.placeIds).toEqual([]);
   });
 
   it("does not fall back on an auth error", async () => {
@@ -250,34 +227,66 @@ describe("find_local_places fallback chain (mocked transport)", () => {
   });
 
   it("works for the promo agent too", async () => {
-    const transport = scriptedTransport(placeHandler((params) => (params["filter.geocode.name"] ? searchOk([PLACE_A]) : NO_RESULTS)));
+    const transport = scriptedTransport(placeHandler((params) => (params.query === "Asheville" ? searchOk([PLACE_A]) : NO_RESULTS)));
     const ctx = makeContext(transport);
     const outcome = await callTool(ctx, promo, "find_local_places", { query: "live music bar" });
-    expect(outcome.ok && outcome.content).toMatchObject({ strategy: "geocode-name+region" });
+    expect(outcome.ok && outcome.content).toMatchObject({ strategy: "city-search" });
   });
 });
 
 describe("get_insights local_only fallback (mocked transport)", () => {
   beforeEach(() => clearQlooCache());
 
-  it("retries a local place insights call with the geocode filter after the locality id is empty", async () => {
+  it("filters place insights by the locality id", async () => {
+    const transport = scriptedTransport(placeHandler(() => insightsOk([INSIGHT_PLACE])));
+    const ctx = makeContext(transport);
+    await callTool(ctx, tools, "resolve_city", { city: "Asheville, NC" });
+    const outcome = await callTool(ctx, tools, "get_insights", { entity_kind: "place", local_only: true });
+
+    expect(outcome.ok && outcome.content).toMatchObject({ strategy: "locality-id", attempts: ["locality-id: results"] });
+    const insights = transport.calls.filter((c) => c.path === "/v2/insights");
+    expect(insights).toHaveLength(1);
+    expect(insights[0].params["filter.location"]).toBe("loc-asheville");
+  });
+
+  it("retries with the city as a location query after the locality id is empty", async () => {
     const transport = scriptedTransport(
-      placeHandler((params) => {
-        if (params["filter.type"] !== "urn:entity:place") return insightsOk([]);
-        return params["filter.geocode.name"] ? insightsOk([PLACE_A]) : insightsOk([]);
-      }),
+      placeHandler((params) => (params["filter.location.query"] === "Asheville, NC" ? insightsOk([INSIGHT_PLACE]) : insightsOk([]))),
     );
     const ctx = makeContext(transport);
     await callTool(ctx, tools, "resolve_city", { city: "Asheville, NC" });
     const outcome = await callTool(ctx, tools, "get_insights", { entity_kind: "place", local_only: true });
 
-    expect(outcome.ok && outcome.content).toMatchObject({ strategy: "geocode-name+region" });
-    expect(outcome.ok && outcome.summary).toMatch(/via geocode-name\+region after locality-id: no results/);
+    expect(outcome.ok && outcome.content).toMatchObject({ strategy: "location-query" });
+    expect(outcome.ok && outcome.summary).toMatch(/via location-query after locality-id: no results/);
     expect(ctx.insightRuns).toEqual([["place-gilded"]]);
   });
 
-  it("allows a local-only call with no interest ids when a geocode fallback exists", async () => {
-    const transport = scriptedTransport(placeHandler(() => insightsOk([PLACE_B])));
+  it("drops location-query places from another town, because Qloo may resolve the text to the wrong locality", async () => {
+    const transport = scriptedTransport(placeHandler(() => insightsOk([INSIGHT_ELSEWHERE])));
+    const ctx = makeContext(transport, { city: "Hebden Bridge, UK" });
+    const outcome = await callTool(ctx, promo, "get_insights", { entity_kind: "place", local_only: true });
+
+    expect(outcome.ok && outcome.content).toMatchObject({ entities: [], attempts: ["location-query: no results"] });
+    expect(ctx.knows("place-tipton")).toBe(false);
+  });
+
+  it("uses a point taken from a local place when there is no locality", async () => {
+    const transport = scriptedTransport(
+      placeHandler((params) => {
+        if (params.types === "urn:entity:place") return searchOk([PLACE_B]);
+        return params["filter.location"] === "POINT(-82.59 35.58)" ? insightsOk([INSIGHT_PLACE]) : insightsOk([]);
+      }),
+    );
+    const ctx = makeContext(transport);
+    await callTool(ctx, promo, "find_local_places", { query: "live music bar" });
+    const outcome = await callTool(ctx, promo, "get_insights", { entity_kind: "place", local_only: true });
+
+    expect(outcome.ok && outcome.content).toMatchObject({ strategy: "place-point", attempts: ["place-point: results"] });
+  });
+
+  it("allows a local-only call with no interest ids", async () => {
+    const transport = scriptedTransport(placeHandler(() => insightsOk([INSIGHT_PLACE])));
     const ctx = makeContext(transport);
     const outcome = await callTool(ctx, promo, "get_insights", { entity_kind: "place", local_only: true });
     expect(outcome.ok).toBe(true);

@@ -27,28 +27,23 @@ export interface QlooTransport {
   request(path: string, params: URLSearchParams): Promise<{ status: number; body: unknown }>;
 }
 
-/** Name-based place filter. Region and country are optional. */
-export interface GeocodeFilter {
-  name: string;
-  admin1Region?: string;
-  countryCode?: string;
-}
-
 export interface SearchInput {
   query: string;
   types: string[];
   take?: number;
+  /** Coordinates as "lat,lon". /search rejects a locality id here with a 400. */
   filterLocation?: string;
   filterRadiusMiles?: number;
-  geocode?: GeocodeFilter;
 }
 
 export interface InsightsInput {
   filterType: string;
   interestEntityIds?: string[];
   excludeEntityIds?: string[];
+  /** A locality id, or a WKT point such as "POINT(-82.55 35.57)". */
   filterLocation?: string;
-  geocode?: GeocodeFilter;
+  /** A place name in plain words. Qloo resolves it to its best-matching locality, which can be the wrong one. */
+  filterLocationQuery?: string;
   /** Experimental: natural-language location signal. Not confirmed for artists. */
   signalLocationQuery?: string;
   take?: number;
@@ -104,13 +99,6 @@ function clampInt(value: number | undefined, min: number, max: number, fallback:
   return Math.min(max, Math.max(min, Math.trunc(value)));
 }
 
-function setGeocode(params: URLSearchParams, geocode: GeocodeFilter | undefined): void {
-  if (!geocode?.name) return;
-  params.set("filter.geocode.name", geocode.name);
-  if (geocode.admin1Region) params.set("filter.geocode.admin1_region", geocode.admin1Region);
-  if (geocode.countryCode) params.set("filter.geocode.country_code", geocode.countryCode);
-}
-
 function mapHttpError(status: number, path: string, body: unknown): QlooError {
   const detail = errorMessageFromBody(body);
   let message: string;
@@ -119,7 +107,7 @@ function mapHttpError(status: number, path: string, body: unknown): QlooError {
   } else if (status === 403) {
     message = "Qloo does not allow this entity type for this key (403).";
   } else if (status === 429) {
-    message = "Qloo rate limit or monthly quota reached (429). Try again later.";
+    message = "Qloo rate limit or monthly quota reached (429). Wait a moment and try again.";
   } else if (status === 400) {
     message = `Qloo rejected the parameters (400)${detail ? `: ${detail}` : "."}`;
   } else if (status === 404) {
@@ -147,8 +135,8 @@ export function createQlooClient(
       console.info(`[qloo-debug] mode=${mode} path=${path} status=${status} shape=${describeResponseShape(body)}`);
     }
 
-    // Per the documented error reference, /search returns 404 with a "No results" message
-    // when nothing matches. That is an empty result, not a failure.
+    // The live API answers an unmatched /search with 200 and an empty array. The error reference
+    // also documents a 404 "No results" reply, so that is treated as an empty result too.
     if (path === "/search" && status === 404 && /no results/i.test(errorMessageFromBody(body) ?? "")) {
       return { body: { success: true, results: [] }, fromCache: false };
     }
@@ -172,7 +160,6 @@ export function createQlooClient(
       if (input.filterRadiusMiles !== undefined) {
         params.set("filter.radius", String(clampInt(input.filterRadiusMiles, 0, 100, 10)));
       }
-      setGeocode(params, input.geocode);
       params.set("take", String(clampInt(input.take, 1, 50, 10)));
       const { body } = await call("/search", params);
       return entitiesFromSearchBody(body);
@@ -182,7 +169,8 @@ export function createQlooClient(
       const seeds = (input.interestEntityIds ?? []).filter(Boolean);
       const exclude = (input.excludeEntityIds ?? []).filter(Boolean);
       // Documented rule: a request needs at least one valid signal or filter.
-      if (seeds.length === 0 && !input.filterLocation && !input.geocode?.name && !input.signalLocationQuery) {
+      const hasLocation = Boolean(input.filterLocation || input.filterLocationQuery || input.signalLocationQuery);
+      if (seeds.length === 0 && !hasLocation) {
         throw new QlooError("Insights needs at least one interest entity or a location filter.", 400, "/v2/insights");
       }
       const params = new URLSearchParams();
@@ -191,7 +179,7 @@ export function createQlooClient(
       if (input.signalLocationQuery) params.set("signal.location.query", input.signalLocationQuery);
       if (exclude.length > 0) params.set("filter.exclude.entities", exclude.join(","));
       if (input.filterLocation) params.set("filter.location", input.filterLocation);
-      setGeocode(params, input.geocode);
+      if (input.filterLocationQuery) params.set("filter.location.query", input.filterLocationQuery);
       params.set("take", String(clampInt(input.take, 1, 50, 20)));
       const { body, fromCache } = await call("/v2/insights", params);
       const parsed = entitiesFromInsightsBody(body);
@@ -200,35 +188,60 @@ export function createQlooClient(
   };
 }
 
-/** Live HTTP transport. The key is sent only in the X-Api-Key header. */
-export function liveTransport(baseUrl: string, apiKey: string): QlooTransport {
+export interface LiveTransportOptions {
+  /** Injected in tests. Defaults to the global fetch. */
+  fetchImpl?: typeof fetch;
+  /** Wait before the single retry. The hackathon key allows 5 requests per second, and the window resets after one second. */
+  retryDelayMs?: number;
+}
+
+const REQUEST_TIMEOUT_MS = 20_000;
+const DEFAULT_RETRY_DELAY_MS = 1_100;
+
+/**
+ * Live HTTP transport. The key is sent only in the X-Api-Key header.
+ * A 429 or a network failure is retried once after a short wait. Other statuses are returned as they are.
+ */
+export function liveTransport(baseUrl: string, apiKey: string, options: LiveTransportOptions = {}): QlooTransport {
   const base = baseUrl.replace(/\/+$/, "");
+  const doFetch = options.fetchImpl ?? fetch;
+  const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+
+  async function once(url: string): Promise<{ status: number; body: unknown }> {
+    const res = await doFetch(url, {
+      method: "GET",
+      headers: { "X-Api-Key": apiKey, Accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const text = await res.text();
+    let body: unknown = null;
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = { message: text.slice(0, 300) };
+      }
+    }
+    return { status: res.status, body };
+  }
+
   return {
     async request(path, params) {
       const query = params.toString();
       const url = `${base}${path}${query ? `?${query}` : ""}`;
-      let res: Response;
-      try {
-        res = await fetch(url, {
-          method: "GET",
-          headers: { "X-Api-Key": apiKey, Accept: "application/json" },
-          cache: "no-store",
-          signal: AbortSignal.timeout(15_000),
-        });
-      } catch (err) {
-        const reason = err instanceof Error ? err.name : "unknown error";
-        throw new QlooError(`Could not reach Qloo (${reason}). Check QLOO_BASE_URL and network access.`, 0, path);
-      }
-      const text = await res.text();
-      let body: unknown = null;
-      if (text) {
+      let failure: unknown = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        if (attempt > 1) await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
         try {
-          body = JSON.parse(text);
-        } catch {
-          body = { message: text.slice(0, 300) };
+          const reply = await once(url);
+          if (reply.status !== 429 || attempt === 2) return reply;
+        } catch (err) {
+          failure = err;
         }
       }
-      return { status: res.status, body };
+      const reason = failure instanceof Error ? failure.name : "unknown error";
+      throw new QlooError(`Could not reach Qloo (${reason}). Check QLOO_BASE_URL and network access.`, 0, path);
     },
   };
 }

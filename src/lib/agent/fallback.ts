@@ -1,4 +1,4 @@
-import { QlooError, type GeocodeFilter } from "../qloo/client";
+import { QlooError } from "../qloo/client";
 
 export interface Attempt<T> {
   name: string;
@@ -46,25 +46,4 @@ export async function firstUsable<T>(attempts: Attempt<T>[], isEmpty: (value: T)
   }
   if (lastEmpty) return { ...lastEmpty, attempts: log };
   throw lastError ?? new Error("No strategy was available.");
-}
-
-/**
- * Splits a venue city such as "Asheville, NC" into geocode filters to try, most specific first.
- * A region in the second part is tried first, then the bare city name. Qloo ignores invalid
- * filters, so the name-only attempt is the one that must always be present.
- */
-export function geocodeCandidates(city: string): { name: string; filter: GeocodeFilter }[] {
-  const parts = city.split(",").map((part) => part.trim()).filter((part) => part.length > 0);
-  const name = parts[0];
-  if (!name) return [];
-  const candidates: { name: string; filter: GeocodeFilter }[] = [];
-  if (parts.length > 1) {
-    const country = parts[2] && /^[A-Za-z]{2}$/.test(parts[2]) ? parts[2].toUpperCase() : undefined;
-    candidates.push({
-      name: "geocode-name+region",
-      filter: { name, admin1Region: parts[1], ...(country ? { countryCode: country } : {}) },
-    });
-  }
-  candidates.push({ name: "geocode-name", filter: { name } });
-  return candidates;
 }

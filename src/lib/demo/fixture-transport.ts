@@ -25,6 +25,8 @@ function toApi(entity: FixtureEntity) {
     ...(entity.subtype ? { subtype: entity.subtype } : {}),
     popularity: entity.popularity,
     ...(entity.rating !== undefined ? { rating: entity.rating } : {}),
+    ...(entity.disambiguation ? { disambiguation: entity.disambiguation } : {}),
+    ...(entity.location ? { location: entity.location } : {}),
   };
 }
 
@@ -131,8 +133,8 @@ export function fixtureTransport(): QlooTransport {
         const seeds = listParam(params, "signal.interests.entities");
         const location = params.get("filter.location") ?? "";
         const signalLocation = params.get("signal.location.query") ?? "";
-        const geocode = params.get("filter.geocode.name") ?? "";
-        if (seeds.length === 0 && !location && !signalLocation && !geocode) {
+        const locationQuery = params.get("filter.location.query") ?? "";
+        if (seeds.length === 0 && !location && !signalLocation && !locationQuery) {
           return { status: 400, body: { message: "at least one valid signal or filter is required" } };
         }
         const take = clampTake(params.get("take"), 20);
@@ -140,7 +142,7 @@ export function fixtureTransport(): QlooTransport {
         const pool = poolForType(type).filter((e) => !excluded.has(e.id));
         const ranked = rankDeterministically(
           pool,
-          `insights|${type}|${seeds.join(",")}|${location}|${signalLocation}|${geocode}`,
+          `insights|${type}|${seeds.join(",")}|${location}|${signalLocation}|${locationQuery}`,
         );
         return {
           status: 200,

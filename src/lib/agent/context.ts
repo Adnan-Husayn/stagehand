@@ -33,6 +33,8 @@ export class RunContext {
   readonly seedArtistIds = new Set<string>();
   localityId: string | null = null;
   localityName: string | null = null;
+  /** Coordinates for the venue's city: the locality's own, or those of a place confirmed to be in the city. */
+  localityPoint: { lat: number; lon: number } | null = null;
   placeIds: string[] = [];
   artist: { entityId: string; name: string } | null = null;
 
