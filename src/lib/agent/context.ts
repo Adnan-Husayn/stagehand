@@ -77,6 +77,19 @@ export class RunContext {
     return this.seedArtistIds.has(entity.id) || this.seedNames.has(normalizeName(entity.name));
   }
 
+  /**
+   * True once Qloo has returned something about this venue: its locality, a resolved seed artist,
+   * a local place, or any insights result. A name search that matched no seed does not count,
+   * and neither does the pre-selected promo artist.
+   */
+  hasQlooResults(): boolean {
+    if (this.localityId !== null || this.seedArtistIds.size > 0) return true;
+    for (const entry of this.provenance.values()) {
+      if ([...entry.tools].some((tool) => tool !== "selected" && tool !== "search_entities")) return true;
+    }
+    return false;
+  }
+
   knows(id: string): boolean {
     return this.provenance.has(id);
   }

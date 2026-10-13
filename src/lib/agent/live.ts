@@ -1,6 +1,7 @@
 import type { RunContext } from "./context";
 import { executeTool, makeStep, QLOO_TOOLS, truncate } from "./exec";
 import { LlmError, type ChatMessage, type LlmClient, type ToolDefinition } from "./llm";
+import { QlooError } from "../qloo/client";
 import { parseToolArguments } from "./tool-args";
 import type { AgentTool, Emit } from "./types";
 
@@ -14,6 +15,10 @@ export interface LiveRunArgs {
   maxTurns: number;
   emit: Emit;
 }
+
+/** Shown when the model stops because every Qloo lookup for the venue came back empty. */
+export const NO_QLOO_DATA_MESSAGE =
+  "Qloo returned nothing for this venue: no matching city, local places or seed artists. Check the spelling of the city and the seed artists, then try again.";
 
 /** Longest tool result sent back to the model. Free tiers cap tokens per minute, so large results are cut. */
 const MAX_TOOL_RESULT_CHARS = 12_000;
@@ -63,6 +68,10 @@ export async function runLiveAgent(args: LiveRunArgs): Promise<unknown> {
     }
 
     if (reply.toolCalls.length === 0) {
+      // The model has tried Qloo and has nothing to build on. Asking it again would only repeat the empty lookups.
+      if (qlooToolAttempted && !args.ctx.hasQlooResults()) {
+        throw new QlooError(NO_QLOO_DATA_MESSAGE, 404, "/search");
+      }
       if (nudged) {
         throw new LlmError(
           "bad_response",
@@ -112,5 +121,8 @@ export async function runLiveAgent(args: LiveRunArgs): Promise<unknown> {
     }
   }
 
+  if (qlooToolAttempted && !args.ctx.hasQlooResults()) {
+    throw new QlooError(NO_QLOO_DATA_MESSAGE, 404, "/search");
+  }
   throw new Error("The agent did not finish within its turn limit. Try again.");
 }

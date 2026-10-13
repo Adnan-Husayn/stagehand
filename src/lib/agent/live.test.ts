@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { clearQlooCache } from "../qloo/client";
 import type { AgentEvent, ShortlistResult } from "../types/stagehand";
-import { runLiveAgent } from "./live";
+import { NO_QLOO_DATA_MESSAGE, runLiveAgent } from "./live";
 import { parseChatResponse, type ChatMessage, type ChatReply, type LlmClient } from "./llm";
 import { SHORTLIST_SYSTEM, shortlistUserMessage } from "./prompts";
 import { shortlistTools } from "./tools";
@@ -200,6 +200,53 @@ describe("live agent loop with a scripted fake model", () => {
   it("fails clearly if the model answers with text a second time", async () => {
     const { run } = setup([textReply("First."), textReply("Second.")]);
     await expect(run()).rejects.toThrow(/replied with text twice/);
+  });
+
+  it("ends with a plain no-data message when every Qloo lookup was empty and the model stops calling tools", async () => {
+    const empty = scriptedTransport((path, params) =>
+      path === "/search" ? searchOk(params.query === "indie rock" ? [VELVET] : []) : insightsOk([]),
+    );
+    const llm = fakeModel([
+      toolReply([{ name: "resolve_city", args: { city: "Zzqxville, QQ" } }]),
+      toolReply([{ name: "find_local_places", args: { query: "live music bar" } }]),
+      toolReply([{ name: "search_entities", args: { query: "Nobody At All", entity_kind: "artist" } }]),
+      // A loose name search that happens to match something is not data about this venue.
+      toolReply([{ name: "search_entities", args: { query: "indie rock", entity_kind: "artist" } }]),
+      textReply("Every lookup came back empty, so I cannot build a shortlist."),
+      toolReply([{ name: "resolve_city", args: { city: "Zzqxville, QQ" } }]),
+    ]);
+    const events: AgentEvent[] = [];
+    const run = runLiveAgent({
+      llm,
+      system: SHORTLIST_SYSTEM,
+      userMessage: "u",
+      tools: shortlistTools(),
+      ctx: makeContext(empty, { city: "Zzqxville, QQ", seedArtists: ["Nobody At All"] }),
+      finalTool: "submit_shortlist",
+      maxTurns: 14,
+      emit: (event) => events.push(event),
+    });
+
+    await expect(run).rejects.toThrow(NO_QLOO_DATA_MESSAGE);
+    // The run stops at the text reply. No nudge, no repeat lookups.
+    expect(llm.seen).toHaveLength(5);
+  });
+
+  it("gives the no-data message at the turn limit too", async () => {
+    const empty = scriptedTransport((path) => (path === "/search" ? searchOk([]) : insightsOk([])));
+    const script = Array.from({ length: 3 }, () => toolReply([{ name: "find_local_places", args: { query: "bar" } }]));
+    await expect(
+      runLiveAgent({
+        llm: fakeModel(script),
+        system: "s",
+        userMessage: "u",
+        tools: shortlistTools(),
+        ctx: makeContext(empty, { city: "Zzqxville, QQ" }),
+        finalTool: "submit_shortlist",
+        maxTurns: 3,
+        emit: () => {},
+      }),
+    ).rejects.toThrow(NO_QLOO_DATA_MESSAGE);
   });
 
   it("rejects a submit that comes before any Qloo tool call and lets the model recover", async () => {
