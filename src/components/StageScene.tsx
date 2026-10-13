@@ -23,15 +23,23 @@ const EDGE = "rgba(168,186,214,0.3)";
 const FAINT = "rgba(168,186,214,0.16)";
 const AMBER = "#ffb44a";
 
-/** Where each dark lamp hangs along the truss, and how far it was swung when it was focused. */
-const LAMPS: { at: string; tilt: number }[] = [
+/** Below this width the page is one column and the scene is only the truss and a short throw. */
+const WIDE = 1024;
+/** How far the key lamp's pool reaches left of the mic, in stage units. The beam shares it. */
+const POOL_LEFT = 30;
+
+/**
+ * Where each dark lamp hangs along the truss, and how far it was swung when it was focused.
+ * `small` marks the few that stay when the page is one column.
+ */
+const LAMPS: { at: string; tilt: number; small?: boolean }[] = [
   { at: "6%", tilt: 14 },
-  { at: "15%", tilt: 9 },
+  { at: "15%", tilt: 9, small: true },
   { at: "26%", tilt: -6 },
   { at: "35%", tilt: 11 },
-  { at: "45%", tilt: 5 },
+  { at: "45%", tilt: 5, small: true },
   { at: "65%", tilt: -8 },
-  { at: "74%", tilt: 7 },
+  { at: "74%", tilt: 7, small: true },
   { at: "85%", tilt: -12 },
   { at: "94%", tilt: -15 },
 ];
@@ -40,64 +48,174 @@ const LAMPS: { at: string; tilt: number }[] = [
  * One par can on its yoke. The origin is the underside of the truss, where the clamp bites. Dark
  * lamps are placed along the truss drawing; the lit one is its own drawing on the centre line.
  */
-function Lamp({ at, tilt, lit }: { at?: string; tilt: number; lit?: boolean }) {
-  const place = lit ? { width: 1, height: 1 } : { x: at, y: 24 };
+function Lamp({ at, tilt, lit, small }: { at?: string; tilt: number; lit?: boolean; small?: boolean }) {
+  const place = lit ? { width: 1, height: 1 } : { x: at, y: 18 };
+  const name = lit ? "scene-key" : small ? "scene-lamp scene-lamp-small" : "scene-lamp";
   return (
-    <svg {...place} overflow="visible" className={lit ? "scene-lamp scene-key" : "scene-lamp"}>
-      <g transform="scale(0.8)">
-      <rect x="-3.5" y="-5" width="7" height="12" rx="1.5" fill={BODY} stroke={EDGE} strokeWidth="1" />
-      <path d="M-15 31V13q0-5 5-5h20q5 0 5 5v18" fill="none" stroke={BODY} strokeWidth="4" />
-      <path d="M-15 31V13q0-5 5-5h20q5 0 5 5v18" fill="none" stroke={FAINT} strokeWidth="1" />
-      <g transform={`rotate(${tilt} 0 28)`}>
-        <path d="M-9 20q0-8 9-8t9 8v24h-18z" fill={BODY} />
-        <path d="M-9 44V20q0-8 9-8" fill="none" stroke={EDGE} strokeWidth="1" />
-        <rect x="-13" y="44" width="26" height="5" rx="1" fill={BODY} stroke={lit ? "rgba(255,180,74,0.7)" : EDGE} strokeWidth="1" />
-        <ellipse cx="0" cy="49.5" rx="11.5" ry="3" fill={DEEP} stroke={FAINT} strokeWidth="1" />
-        {lit && (
-          <g className="scene-light">
-            <defs>
-              <radialGradient id="scene-flare">
-                <stop offset="0" stopColor={AMBER} stopOpacity="0.55" />
-                <stop offset="0.35" stopColor={AMBER} stopOpacity="0.16" />
-                <stop offset="1" stopColor={AMBER} stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            <g className="scene-breathe">
-              <circle cx="0" cy="50" r="30" fill="url(#scene-flare)" />
-              <ellipse cx="0" cy="49.5" rx="11.5" ry="3" fill="#ffe7bd" />
+    <svg {...place} overflow="visible" className={name}>
+      <g transform="scale(0.7)">
+        <rect x="-3.5" y="-5" width="7" height="12" rx="1.5" fill={BODY} stroke={EDGE} strokeWidth="1" />
+        <path d="M-15 31V13q0-5 5-5h20q5 0 5 5v18" fill="none" stroke={BODY} strokeWidth="4" />
+        <path d="M-15 31V13q0-5 5-5h20q5 0 5 5v18" fill="none" stroke={FAINT} strokeWidth="1" />
+        <g transform={`rotate(${tilt} 0 28)`}>
+          <path d="M-9 20q0-8 9-8t9 8v24h-18z" fill={BODY} />
+          <path d="M-9 44V20q0-8 9-8" fill="none" stroke={EDGE} strokeWidth="1" />
+          <rect
+            x="-13"
+            y="44"
+            width="26"
+            height="5"
+            rx="1"
+            fill={BODY}
+            stroke={lit ? "rgba(255,180,74,0.7)" : EDGE}
+            strokeWidth="1"
+          />
+          <ellipse cx="0" cy="49.5" rx="11.5" ry="3" fill={DEEP} stroke={FAINT} strokeWidth="1" />
+          {lit && (
+            <g className="scene-light">
+              <defs>
+                <radialGradient id="scene-flare">
+                  <stop offset="0" stopColor={AMBER} stopOpacity="0.55" />
+                  <stop offset="0.35" stopColor={AMBER} stopOpacity="0.16" />
+                  <stop offset="1" stopColor={AMBER} stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <g className="scene-breathe">
+                <circle cx="0" cy="50" r="30" fill="url(#scene-flare)" />
+                <ellipse cx="0" cy="49.5" rx="11.5" ry="3" fill="#ffe7bd" />
+              </g>
             </g>
-          </g>
-        )}
-      </g>
-      <circle cx="-15" cy="29" r="2.2" fill={BODY} stroke={FAINT} strokeWidth="1" />
-      <circle cx="15" cy="29" r="2.2" fill={BODY} stroke={FAINT} strokeWidth="1" />
+          )}
+        </g>
+        <circle cx="-15" cy="29" r="2.2" fill={BODY} stroke={FAINT} strokeWidth="1" />
+        <circle cx="15" cy="29" r="2.2" fill={BODY} stroke={FAINT} strokeWidth="1" />
       </g>
     </svg>
   );
 }
+
+const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
 /**
  * The room behind the page: an empty club stage seen from the back, before the show. A truss of
  * dark lamps runs under the header, the gear waits low on the stage, and one lamp is left on over
  * the mic. Decorative only. Everything is vector, laid out with CSS, with no frame loop.
  *
- * `quiet` turns the beam down for the views where the headline runs across the middle of the page.
+ * The scene is fitted to the page so nothing in it sits behind text. The key lamp, its beam and
+ * the mic stand go in the gutter between the two columns, and the rest of the stage shows only in
+ * the clear band under the right-hand panel. `view` is here so the fit runs again on each view.
  */
-export function StageScene({ rigRef, quiet = false }: { rigRef: RefObject<StageRig | null>; quiet?: boolean }) {
+export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null>; view: string }) {
   const sceneRef = useRef<HTMLDivElement>(null);
+  const floorRef = useRef<HTMLDivElement>(null);
 
-  // The truss hangs just under whatever sits above the page content (header, demo banner).
   useEffect(() => {
     const scene = sceneRef.current;
+    const floor = floorRef.current;
     const main = document.getElementById("main");
-    if (!scene || !main) return;
-    const place = () => scene.style.setProperty("--scene-top", `${main.offsetTop + 2}px`);
-    place();
-    const observer = new ResizeObserver(place);
+    if (!scene || !floor || !main) return;
+    let frame = 0;
+
+    const set = (name: string, value: string) => scene.style.setProperty(name, value);
+
+    /** One column: the lit lamp hangs at the right and throws as far as the first line under it. */
+    function fitNarrow(top: number, unit: number, pad: number) {
+      const lead = main!.querySelector(".grid > :first-child");
+      const x = window.innerWidth - pad - 18;
+      const lens = top + 53 * unit;
+      let reach = 190;
+      if (lead) {
+        // Only the text itself counts, line by line, so the throw can use the ragged right edge.
+        const walker = document.createTreeWalker(lead, NodeFilter.SHOW_TEXT);
+        const range = document.createRange();
+        while (walker.nextNode()) {
+          range.selectNodeContents(walker.currentNode);
+          for (const box of range.getClientRects()) {
+            const boxTop = box.top + window.scrollY;
+            if (box.width > 0 && box.right > x - 36 && boxTop + box.height > lens) {
+              reach = Math.min(reach, boxTop - lens - 8);
+            }
+          }
+        }
+      }
+      set("--scene-x", `${x}px`);
+      set("--scene-reach", `${reach >= 44 ? reach : 0}px`);
+      scene!.dataset.gear = "off";
+    }
+
+    /** Two columns: find the gutter and the clear band under the right-hand panel. */
+    function fitWide(top: number, unit: number) {
+      const lead = main!.querySelector(".grid > :first-child");
+      const panel = main!.querySelector("[data-scene-panel]");
+      if (!lead || !panel) return false;
+      const left = lead.getBoundingClientRect().right;
+      const box = panel.getBoundingClientRect();
+      if (box.left - left < 24) return false;
+      const height = window.innerHeight;
+      const width = window.innerWidth;
+      const x = (left + box.left) / 2;
+      // The band is measured with the page at the top, so the stage keeps its size while scrolling.
+      // The stage stands on the footer whenever the footer is on screen.
+      const footTop = document.querySelector("footer")?.getBoundingClientRect().top ?? height;
+      const lift = Math.max(0, height - footTop);
+      const still = view === "input" ? window.scrollY : 0;
+      const band = Math.min(height, footTop + still) - (box.bottom + still);
+      const gear = band >= 100;
+      const k = gear && view === "input" ? clamp((band + 26) / 165, 0.6, 1.25) : clamp(height / 900, 0.8, 1.15);
+      const drop = height - lift - top - 52 * unit - 35 * k;
+      set("--scene-x", `${x}px`);
+      set("--scene-lift", `${lift}px`);
+      set("--scene-k", k.toFixed(3));
+      set("--scene-throw", `${(drop * Math.tan((2.5 * Math.PI) / 180)).toFixed(1)}px`);
+      scene!.dataset.gear = gear ? "on" : "off";
+      // Everything on the floor is cut to the gutter plus the band, so it can never show through
+      // the panel or run under the left-hand column.
+      const a = left + 4;
+      const b = box.left;
+      const base = height - lift;
+      const under = Math.min(base, box.bottom);
+      floor!.style.clipPath = `polygon(${a}px 0, ${b}px 0, ${b}px ${under}px, ${width}px ${under}px, ${width}px ${base}px, ${a}px ${base}px)`;
+      // A dark lamp that would hang on top of the key lamp is taken down.
+      for (const lamp of scene!.querySelectorAll<SVGElement>(".scene-lamp")) {
+        const at = (parseFloat(lamp.getAttribute("x") ?? "0") / 100) * width;
+        lamp.style.visibility = Math.abs(at - x) < 44 ? "hidden" : "";
+      }
+      return true;
+    }
+
+    function fit() {
+      frame = 0;
+      const pad = parseFloat(getComputedStyle(main!).paddingTop) || 56;
+      // The truss and its lamps shrink with the space above the headline so they never reach it.
+      const unit = clamp(pad / 56, 0.56, 1);
+      const top = main!.offsetTop;
+      set("--scene-top", `${top}px`);
+      set("--scene-u", unit.toFixed(3));
+      const wide = window.innerWidth >= WIDE && fitWide(top, unit);
+      if (!wide) fitNarrow(top, unit, parseFloat(getComputedStyle(main!).paddingLeft) || 16);
+      scene!.dataset.fit = wide ? "wide" : "narrow";
+    }
+
+    const queue = () => {
+      if (!frame) frame = requestAnimationFrame(fit);
+    };
+
+    fit();
+    const observer = new ResizeObserver(queue);
     observer.observe(document.body);
     observer.observe(main);
-    return () => observer.disconnect();
-  }, []);
+    const panel = main.querySelector("[data-scene-panel]");
+    if (panel) observer.observe(panel);
+    window.addEventListener("resize", queue);
+    window.addEventListener("scroll", queue, { passive: true });
+    void document.fonts?.ready.then(queue);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", queue);
+      window.removeEventListener("scroll", queue);
+    };
+  }, [view]);
 
   useEffect(() => {
     // The lamps are wired to these calls in the next step. For now the scene is one still state
@@ -115,19 +233,19 @@ export function StageScene({ rigRef, quiet = false }: { rigRef: RefObject<StageR
   }, [rigRef]);
 
   return (
-    <div ref={sceneRef} aria-hidden="true" className="scene" data-quiet={quiet}>
-      <svg className="scene-truss" width="100%" height="120">
+    <div ref={sceneRef} aria-hidden="true" className="scene" data-view={view === "input" ? "input" : "work"}>
+      <svg className="scene-truss" height="80">
         <defs>
-          <pattern id="scene-lace" width="30" height="24" patternUnits="userSpaceOnUse">
-            <path d="M0 21L15 3L30 21" fill="none" stroke={BODY} strokeWidth="3" />
-            <path d="M0 21L15 3" fill="none" stroke={FAINT} strokeWidth="1" />
+          <pattern id="scene-lace" width="24" height="18" patternUnits="userSpaceOnUse">
+            <path d="M0 16L12 2L24 16" fill="none" stroke={BODY} strokeWidth="3" />
+            <path d="M0 16L12 2" fill="none" stroke={FAINT} strokeWidth="1" />
           </pattern>
         </defs>
-        <rect x="0" y="0" width="100%" height="24" fill="url(#scene-lace)" />
-        <rect x="0" y="0" width="100%" height="4" fill={BODY} />
+        <rect x="0" y="0" width="100%" height="18" fill="url(#scene-lace)" />
+        <rect x="0" y="0" width="100%" height="3.5" fill={BODY} />
         <rect x="0" y="0" width="100%" height="1" fill={EDGE} />
-        <rect x="0" y="20" width="100%" height="4" fill={BODY} />
-        <rect x="0" y="20" width="100%" height="1" fill={FAINT} />
+        <rect x="0" y="14.5" width="100%" height="3.5" fill={BODY} />
+        <rect x="0" y="14.5" width="100%" height="1" fill={FAINT} />
         {LAMPS.map((lamp) => (
           <Lamp key={lamp.at} {...lamp} />
         ))}
@@ -135,122 +253,166 @@ export function StageScene({ rigRef, quiet = false }: { rigRef: RefObject<StageR
 
       <Lamp tilt={-5} lit />
 
-      <svg className="scene-beam scene-light" viewBox="0 0 224 100" preserveAspectRatio="none">
+      {/* One column only: a short throw that fades out above the first line of text under it. */}
+      <svg className="scene-short scene-light" viewBox="0 0 60 100" preserveAspectRatio="none">
         <defs>
-          <linearGradient id="scene-throw" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={AMBER} stopOpacity="0.3" />
-            <stop offset="0.25" stopColor={AMBER} stopOpacity="0.13" />
-            <stop offset="1" stopColor={AMBER} stopOpacity="0.05" />
+          <linearGradient id="scene-short-throw" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={AMBER} stopOpacity="0.34" />
+            <stop offset="0.5" stopColor={AMBER} stopOpacity="0.1" />
+            <stop offset="1" stopColor={AMBER} stopOpacity="0" />
           </linearGradient>
         </defs>
-        <polygon className="scene-breathe" points="65,0 87,0 224,100 0,100" fill="url(#scene-throw)" />
+        <polygon className="scene-breathe" points="24,0 36,0 60,100 0,100" fill="url(#scene-short-throw)" />
       </svg>
 
-      <svg className="scene-stage" viewBox="0 0 1600 330">
-        <defs>
-          <radialGradient id="scene-pool">
-            <stop offset="0" stopColor={AMBER} stopOpacity="0.5" />
-            <stop offset="0.7" stopColor={AMBER} stopOpacity="0.34" />
-            <stop offset="0.93" stopColor={AMBER} stopOpacity="0.1" />
-            <stop offset="1" stopColor={AMBER} stopOpacity="0" />
-          </radialGradient>
-          <linearGradient id="scene-lip" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor={AMBER} stopOpacity="0" />
-            <stop offset="0.5" stopColor={AMBER} stopOpacity="0.75" />
-            <stop offset="1" stopColor={AMBER} stopOpacity="0" />
-          </linearGradient>
-        </defs>
+      <div ref={floorRef} className="scene-floor">
+        <svg className="scene-beam scene-light" viewBox="0 0 184 100" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="scene-throw" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={AMBER} stopOpacity="0.3" />
+              <stop offset="0.25" stopColor={AMBER} stopOpacity="0.13" />
+              <stop offset="1" stopColor={AMBER} stopOpacity="0.05" />
+            </linearGradient>
+          </defs>
+          <polygon
+            className="scene-breathe"
+            points={`${POOL_LEFT - 8},0 ${POOL_LEFT + 8},0 184,100 0,100`}
+            fill="url(#scene-throw)"
+          />
+        </svg>
 
-        {/* Stage floor and the front of the stage. */}
-        <polygon points="150,262 1450,262 1424,218 176,218" fill={DEEP} />
-        <rect x="150" y="262" width="1300" height="68" fill={BODY} />
-        <rect x="150" y="262" width="1300" height="1" fill={FAINT} />
+        {/* The mic stands at x=100. The stage runs off to the right and fades out to the left. */}
+        <svg className="scene-stage" viewBox="0 0 1300 276">
+          <defs>
+            <radialGradient id="scene-pool">
+              <stop offset="0" stopColor={AMBER} stopOpacity="0.5" />
+              <stop offset="0.7" stopColor={AMBER} stopOpacity="0.34" />
+              <stop offset="0.93" stopColor={AMBER} stopOpacity="0.1" />
+              <stop offset="1" stopColor={AMBER} stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id="scene-lip" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor={AMBER} stopOpacity="0" />
+              <stop offset="0.5" stopColor={AMBER} stopOpacity="0.75" />
+              <stop offset="1" stopColor={AMBER} stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="scene-dark" gradientUnits="userSpaceOnUse" x1="56" y1="0" x2="100" y2="0">
+              <stop offset="0" stopColor="#fff" stopOpacity="0" />
+              <stop offset="1" stopColor="#fff" stopOpacity="1" />
+            </linearGradient>
+            <mask id="scene-ground" maskUnits="userSpaceOnUse" x="0" y="200" width="1300" height="76">
+              <rect x="0" y="200" width="1300" height="76" fill="url(#scene-dark)" />
+            </mask>
+          </defs>
 
-        {/* Bass rig and a combo, house left. */}
-        <rect x="380" y="184" width="70" height="58" rx="2" fill={BODY} />
-        <path d="M380 242V186q0-2 2-2h66" fill="none" stroke={EDGE} strokeWidth="1" />
-        <path d="M384 197H446" stroke={FAINT} strokeWidth="1" />
-        <rect x="520" y="128" width="76" height="112" rx="2" fill={BODY} />
-        <path d="M520 240V130q0-2 2-2h72" fill="none" stroke={EDGE} strokeWidth="1" />
-        <rect x="526" y="106" width="64" height="22" rx="2" fill={BODY} />
-        <path d="M526 128V108q0-2 2-2h60" fill="none" stroke={EDGE} strokeWidth="1" />
-
-        {/* Drum riser and kit. */}
-        <polygon points="890,222 1130,222 1120,214 900,214" fill={DEEP} />
-        <rect x="890" y="222" width="240" height="18" fill={BODY} />
-        <rect x="890" y="222" width="240" height="1" fill={EDGE} />
-        <g stroke={BODY} strokeWidth="3" fill="none">
-          <path d="M912 218V152M958 160V104M1078 164V116M948 189V218M1070 200V218M1102 200V218" />
-        </g>
-        <g stroke={FAINT} strokeWidth="1" fill="none">
-          <path d="M911 218V152M957 160V104M1077 164V116" />
-        </g>
-        <circle cx="1010" cy="180" r="38" fill={BODY} />
-        <path d="M972.4 174.5A38 38 0 0 1 1042.5 160.3" fill="none" stroke={EDGE} strokeWidth="1" />
-        <circle cx="1010" cy="180" r="32" fill="none" stroke={FAINT} strokeWidth="1" />
-        <g transform="rotate(-7 986 128)">
-          <rect x="966" y="115" width="40" height="27" rx="3" fill={BODY} />
-          <path d="M966 139V118q0-3 3-3h34" fill="none" stroke={EDGE} strokeWidth="1" />
-        </g>
-        <g transform="rotate(7 1034 128)">
-          <rect x="1014" y="115" width="40" height="27" rx="3" fill={BODY} />
-          <path d="M1014 139V118q0-3 3-3h34" fill="none" stroke={EDGE} strokeWidth="1" />
-        </g>
-        <rect x="1064" y="160" width="44" height="40" rx="3" fill={BODY} />
-        <path d="M1064 197V163q0-3 3-3h38" fill="none" stroke={EDGE} strokeWidth="1" />
-        <rect x="928" y="176" width="40" height="13" rx="2" fill={BODY} />
-        <path d="M928 187V178q0-2 2-2h36" fill="none" stroke={EDGE} strokeWidth="1" />
-        <ellipse cx="912" cy="159" rx="22" ry="2.5" fill={BODY} />
-        <path d="M890 159A22 2.5 0 0 1 934 159" fill="none" stroke={EDGE} strokeWidth="1" />
-        <g transform="rotate(-9 952 101)">
-          <ellipse cx="952" cy="101" rx="32" ry="3.5" fill={BODY} />
-          <path d="M920 101A32 3.5 0 0 1 984 101" fill="none" stroke={EDGE} strokeWidth="1" />
-        </g>
-        <g transform="rotate(8 1084 113)">
-          <ellipse cx="1084" cy="113" rx="34" ry="3.5" fill={BODY} />
-          <path d="M1050 113A34 3.5 0 0 1 1118 113" fill="none" stroke={EDGE} strokeWidth="1" />
-        </g>
-
-        {/* Half stack and a combo, house right. */}
-        <rect x="1230" y="150" width="82" height="90" rx="2" fill={BODY} />
-        <path d="M1230 240V152q0-2 2-2h78" fill="none" stroke={EDGE} strokeWidth="1" />
-        <rect x="1234" y="124" width="74" height="26" rx="2" fill={BODY} />
-        <path d="M1234 150V126q0-2 2-2h70" fill="none" stroke={EDGE} strokeWidth="1" />
-        <rect x="1370" y="186" width="68" height="58" rx="2" fill={BODY} />
-        <path d="M1370 244V188q0-2 2-2h64" fill="none" stroke={EDGE} strokeWidth="1" />
-        <path d="M1374 199H1434" stroke={FAINT} strokeWidth="1" />
-
-        {/* The pool the one lit lamp throws. It is aimed a little off the mic, toward the kit. */}
-        <g className="scene-light">
-          <g className="scene-breathe">
-            <ellipse cx="836" cy="241" rx="112" ry="17" fill="url(#scene-pool)" />
-            <rect x="740" y="262" width="192" height="1.5" fill="url(#scene-lip)" />
+          {/* Stage floor and its front edge. Left of the mic there is no light, so no stage. */}
+          <g mask="url(#scene-ground)">
+            <rect x="0" y="218" width="1300" height="44" fill={DEEP} />
+            <rect x="0" y="262" width="1300" height="14" fill={BODY} />
+            <rect x="0" y="262" width="1300" height="1" fill={FAINT} />
           </g>
-        </g>
 
-        {/* Mic cable, monitor wedges and the mic stand. */}
-        <path d="M812 251C850 262 890 250 930 256S1060 262 1140 250" fill="none" stroke="#04060a" strokeWidth="2" />
-        <polygon points="694,260 764,260 757,238 701,238" fill={BODY} />
-        <path d="M701 238H757" stroke={EDGE} strokeWidth="1" />
-        <polygon points="1150,258 1220,258 1213,236 1157,236" fill={BODY} />
-        <path d="M1157 236H1213" stroke={EDGE} strokeWidth="1" />
-        <polygon points="560,258 630,258 623,236 567,236" fill={BODY} />
-        <path d="M567 236H623" stroke={EDGE} strokeWidth="1" />
-        <ellipse cx="800" cy="250" rx="15" ry="3.5" fill={BODY} stroke={EDGE} strokeWidth="1" />
-        <path d="M800 250V114" stroke={BODY} strokeWidth="3.5" />
-        <path d="M799 250V114" stroke={EDGE} strokeWidth="1" />
-        <rect x="797" y="176" width="6" height="12" rx="1" fill={BODY} stroke={EDGE} strokeWidth="1" />
-        <g transform="rotate(-28 800 114)">
-          <rect x="796.5" y="96" width="7" height="24" rx="2" fill={BODY} stroke={EDGE} strokeWidth="1" />
-          <circle cx="800" cy="92" r="6" fill={BODY} stroke={EDGE} strokeWidth="1" />
-        </g>
-        <g className="scene-light" fill="none" stroke={AMBER} strokeLinecap="round">
-          <path d="M786 249.5Q800 246.5 814 249.5" strokeWidth="1" opacity="0.8" />
-          <path d="M801.5 246V190M801.5 174V118" strokeWidth="1" opacity="0.45" />
-          <path d="M784.5 91.6A6 6 0 0 1 794.9 91.6" strokeWidth="1.2" opacity="0.9" />
-          <path d="M722 238H757" strokeWidth="1" opacity="0.4" />
-        </g>
-      </svg>
+          <g className="scene-gear">
+            {/* Drum riser and kit, seen a little from the left so the shells have depth. */}
+            <polygon points="196,222 452,222 442,214 206,214" fill={DEEP} />
+            <rect x="196" y="222" width="256" height="18" fill={BODY} />
+            <rect x="196" y="222" width="256" height="1" fill={EDGE} />
+            <g stroke={BODY} strokeWidth="3" strokeLinecap="round" fill="none">
+              {/* Hi-hat, crash and ride stands with their tripods. */}
+              <path d="M222 214V150M222 204L211 216M222 204L233 216" />
+              <path d="M280 214V104L268 99M280 202L270 216M280 202L291 216" />
+              <path d="M398 170V118M398 204L387 216M398 204L410 216" />
+              {/* Snare stand, tom post, floor tom legs, kick spurs. */}
+              <path d="M256 188V206L245 216M256 206L267 216" />
+              <path d="M326 150V124" />
+              <path d="M386 196L381 216M426 196L431 216M406 204V216" />
+              <path d="M296 204L284 216M356 204L368 216" />
+            </g>
+            <g stroke={FAINT} strokeWidth="1" fill="none">
+              <path d="M221 214V150M279 214V104M397 170V118" />
+            </g>
+            {/* Kick: shell first, then the front head. */}
+            <path d="M320 146h16a26 36 0 0 1 0 72h-16z" fill={BODY} />
+            <path d="M336 146a26 36 0 0 1 22 18" fill="none" stroke={FAINT} strokeWidth="1" />
+            <ellipse cx="320" cy="182" rx="34" ry="36" fill={BODY} />
+            <path d="M286.6 175A34 36 0 0 1 346 158.8" fill="none" stroke={EDGE} strokeWidth="1" />
+            {/* Rack toms, one a size up from the other. */}
+            <g transform="rotate(-10 300 131)">
+              <rect x="282" y="119" width="36" height="24" rx="3" fill={BODY} />
+              <path d="M282 140V122q0-3 3-3h30" fill="none" stroke={EDGE} strokeWidth="1" />
+            </g>
+            <g transform="rotate(9 350 132)">
+              <rect x="329" y="118" width="42" height="28" rx="3" fill={BODY} />
+              <path d="M329 143V121q0-3 3-3h36" fill="none" stroke={EDGE} strokeWidth="1" />
+            </g>
+            {/* Floor tom and snare. */}
+            <rect x="382" y="160" width="48" height="42" rx="3" fill={BODY} />
+            <path d="M382 199V163q0-3 3-3h42" fill="none" stroke={EDGE} strokeWidth="1" />
+            <rect x="236" y="174" width="40" height="14" rx="2" fill={BODY} />
+            <path d="M236 186V176q0-2 2-2h36" fill="none" stroke={EDGE} strokeWidth="1" />
+            {/* Hats, crash, ride. */}
+            <path d="M200 156q22 -7 44 0q-22 4 -44 0z" fill={BODY} />
+            <path d="M200 156q22 -7 44 0" fill="none" stroke={EDGE} strokeWidth="1" />
+            <path d="M201 159q21 4 42 0" fill="none" stroke={FAINT} strokeWidth="1" />
+            <g transform="rotate(-10 266 99)">
+              <path d="M234 99q32 -9 64 0q-32 4 -64 0z" fill={BODY} />
+              <path d="M234 99q32 -9 64 0" fill="none" stroke={EDGE} strokeWidth="1" />
+            </g>
+            <g transform="rotate(8 400 116)">
+              <path d="M365 116q35 -10 70 0q-35 4 -70 0z" fill={BODY} />
+              <path d="M365 116q35 -10 70 0" fill="none" stroke={EDGE} strokeWidth="1" />
+            </g>
+
+            {/* A wedge, a half stack, a combo and a bass rig further along. */}
+            <polygon points="478,258 548,258 541,236 485,236" fill={BODY} />
+            <path d="M485 236H541" stroke={EDGE} strokeWidth="1" />
+            <rect x="580" y="150" width="82" height="90" rx="2" fill={BODY} />
+            <path d="M580 240V152q0-2 2-2h78" fill="none" stroke={EDGE} strokeWidth="1" />
+            <rect x="584" y="124" width="74" height="26" rx="2" fill={BODY} />
+            <path d="M584 150V126q0-2 2-2h70" fill="none" stroke={EDGE} strokeWidth="1" />
+            <rect x="716" y="186" width="68" height="58" rx="2" fill={BODY} />
+            <path d="M716 244V188q0-2 2-2h64" fill="none" stroke={EDGE} strokeWidth="1" />
+            <path d="M720 199H780" stroke={FAINT} strokeWidth="1" />
+            <rect x="850" y="128" width="76" height="112" rx="2" fill={BODY} />
+            <path d="M850 240V130q0-2 2-2h72" fill="none" stroke={EDGE} strokeWidth="1" />
+            <rect x="856" y="106" width="64" height="22" rx="2" fill={BODY} />
+            <path d="M856 128V108q0-2 2-2h60" fill="none" stroke={EDGE} strokeWidth="1" />
+          </g>
+
+          {/* The pool the one lit lamp throws. It is aimed off the mic, toward the kit. */}
+          <g className="scene-light">
+            <g className="scene-breathe">
+              <ellipse cx="162" cy="241" rx="92" ry="15" fill="url(#scene-pool)" />
+              <rect x="84" y="262" width="160" height="1.5" fill="url(#scene-lip)" />
+            </g>
+          </g>
+
+          {/* What stands in the pool: the mic cable, the singer's wedge and the mic stand. */}
+          <path d="M112 251C150 262 190 250 240 256S400 262 470 250" fill="none" stroke="#04060a" strokeWidth="2" />
+          <polygon points="128,260 196,260 189,239 135,239" fill={BODY} />
+          <path d="M135 239H189" stroke={EDGE} strokeWidth="1" />
+          <ellipse cx="100" cy="250" rx="15" ry="3.5" fill={BODY} stroke={EDGE} strokeWidth="1" />
+          <path d="M100 250V114" stroke={BODY} strokeWidth="3.5" />
+          <path d="M99 250V114" stroke={EDGE} strokeWidth="1" />
+          <rect x="97" y="176" width="6" height="12" rx="1" fill={BODY} stroke={EDGE} strokeWidth="1" />
+          <g transform="rotate(-28 100 114)">
+            <rect x="96.5" y="96" width="7" height="24" rx="2" fill={BODY} stroke={EDGE} strokeWidth="1" />
+            <circle cx="100" cy="92" r="6" fill={BODY} stroke={EDGE} strokeWidth="1" />
+          </g>
+          <g className="scene-light" fill="none" stroke={AMBER} strokeLinecap="round">
+            <path d="M86 249.5Q100 246.5 114 249.5" strokeWidth="1" opacity="0.8" />
+            <path d="M101.5 246V190M101.5 174V118" strokeWidth="1" opacity="0.45" />
+            <path d="M84.5 91.6A6 6 0 0 1 94.9 91.6" strokeWidth="1.2" opacity="0.9" />
+            <path d="M135 239H189" strokeWidth="1" opacity="0.7" />
+            {/* The near side of the kit catches the spill. */}
+            <g className="scene-gear" strokeWidth="1" opacity="0.45">
+              <path d="M200 156q22 -7 44 0" />
+              <path d="M238 174H274" />
+              <path d="M286.6 175A34 36 0 0 1 300 153" />
+              <path d="M196 222.5H300" />
+            </g>
+          </g>
+        </svg>
+      </div>
     </div>
   );
 }

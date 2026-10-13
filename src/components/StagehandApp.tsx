@@ -397,7 +397,7 @@ export function StagehandApp() {
   const count = shortlist?.artists.length ?? 0;
   return (
     <div className="flex min-h-screen flex-col">
-      <StageScene rigRef={rigRef} quiet={view !== "input"} />
+      <StageScene rigRef={rigRef} view={view} />
       <div className="grain" aria-hidden="true" />
       <div className="blackout" data-on={dark} aria-hidden="true" />
       <a className="skip" href="#main">
@@ -455,7 +455,10 @@ export function StagehandApp() {
                 </p>
               </div>
 
-              <div className="intro intro-desk min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-3">
+              <div
+                data-scene-panel
+                className="intro intro-desk min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-3"
+              >
                 <VenueForm disabled={running} onSubmit={startShortlist} showSample={demo} />
               </div>
 
@@ -586,6 +589,7 @@ export function StagehandApp() {
 
             <aside
               aria-label="Agent activity"
+              data-scene-panel
               className="min-w-0 lg:sticky lg:top-5 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start"
             >
               <ActivityPanel trace={trace} running={running} />

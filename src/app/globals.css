@@ -45,17 +45,25 @@
 
 @layer components {
   /*
-   * Stage furniture: the scene sits at the back, grain and blackout over it. The scene is three
-   * drawings hung off one centre line (--scene-x, the gutter between headline and form): the
-   * truss under the header, the stage along the bottom edge and the beam stretched between them.
+   * Stage furniture: the scene sits at the back, grain and blackout over it. The scene is fitted
+   * to the page by StageScene, which sets where the truss hangs (--scene-top), how big it is
+   * (--scene-u), the centre line the key lamp, beam and mic share (--scene-x) and the size of the
+   * stage (--scene-k).
    */
   .scene {
     --scene-x: 56%;
-    --scene-top: 4.4rem;
+    --scene-top: 4rem;
+    --scene-u: 1;
     --scene-k: 1;
-    position: fixed;
-    inset: 0;
+    --scene-reach: 0px;
+    --scene-lift: 0px;
+    position: absolute;
+    top: 0;
+    left: 0;
     z-index: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100svh;
     overflow: hidden;
     pointer-events: none;
   }
@@ -68,59 +76,74 @@
   .scene-truss {
     top: var(--scene-top);
     left: 0;
+    width: calc(100% / var(--scene-u));
+    transform: scale(var(--scene-u));
+    transform-origin: 0 0;
   }
 
   .scene-key {
-    top: calc(var(--scene-top) + 24px);
+    top: calc(var(--scene-top) + 18px * var(--scene-u));
     left: var(--scene-x);
+    transform: scale(var(--scene-u));
+    transform-origin: 0 0;
   }
 
-  .scene-stage,
-  .scene-beam,
-  .scene-lamp {
+  /* One column: a few small lamps, the lit one at the right, and its short throw. */
+  .scene-lamp:not(.scene-lamp-small),
+  .scene-floor {
     display: none !important;
   }
 
+  .scene-short {
+    top: calc(var(--scene-top) + 53px * var(--scene-u));
+    left: calc(var(--scene-x) - 28px);
+    width: 60px;
+    height: var(--scene-reach);
+    filter: blur(1.5px);
+  }
+
+  /* Two columns: the scene stays put while the page scrolls, and the stage is drawn. */
   @media (min-width: 1024px) {
-    .scene-stage,
-    .scene-beam,
-    .scene-lamp {
+    .scene {
+      position: fixed;
+      height: 100%;
+    }
+
+    .scene-lamp:not(.scene-lamp-small),
+    .scene-floor {
       display: block !important;
     }
-  }
 
-  /* Past this width the page stops growing and sits centred, so the gutter does too. */
-  @media (min-width: 1580px) {
-    .scene {
-      --scene-x: calc(50% + 88px);
+    .scene-short,
+    .scene[data-fit="narrow"] .scene-floor {
+      display: none !important;
     }
   }
 
-  @media (min-width: 1800px) and (min-height: 1000px) {
-    .scene {
-      --scene-k: 1.25;
-    }
+  .scene-floor {
+    position: absolute;
+    inset: 0;
+  }
+
+  .scene:not([data-fit]) .scene-floor,
+  .scene:not([data-fit]) .scene-key,
+  .scene[data-gear="off"] .scene-gear {
+    visibility: hidden;
   }
 
   .scene-stage {
-    bottom: 0;
-    left: var(--scene-x);
-    width: calc(1600px * var(--scene-k));
-    margin-left: calc(-800px * var(--scene-k));
+    bottom: var(--scene-lift);
+    left: calc(var(--scene-x) - 100px * var(--scene-k));
+    width: calc(1300px * var(--scene-k));
   }
 
   /* From the lit lens down to the middle of its pool on the stage floor. */
   .scene-beam {
-    top: calc(var(--scene-top) + 64px);
-    left: var(--scene-x);
-    width: calc(224px * var(--scene-k));
-    height: calc(100% - var(--scene-top) - 64px - 89px * var(--scene-k));
-    margin-left: calc(-76px * var(--scene-k));
+    top: calc(var(--scene-top) + 52px * var(--scene-u));
+    left: calc(var(--scene-x) - 30px * var(--scene-k));
+    width: calc(184px * var(--scene-k));
+    height: calc(100% - var(--scene-lift) - var(--scene-top) - 52px * var(--scene-u) - 35px * var(--scene-k));
     filter: blur(2.5px);
-  }
-
-  .scene[data-quiet="true"] .scene-beam {
-    opacity: 0.3;
   }
 
   .scene-breathe {
