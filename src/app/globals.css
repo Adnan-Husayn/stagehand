@@ -44,7 +44,89 @@
 }
 
 @layer components {
-  /* Stage furniture: the canvas sits at the back, grain and blackout over it. */
+  /*
+   * Stage furniture: the scene sits at the back, grain and blackout over it. The scene is three
+   * drawings hung off one centre line (--scene-x, the gutter between headline and form): the
+   * truss under the header, the stage along the bottom edge and the beam stretched between them.
+   */
+  .scene {
+    --scene-x: 56%;
+    --scene-top: 4.4rem;
+    --scene-k: 1;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .scene svg {
+    position: absolute;
+    display: block;
+  }
+
+  .scene-truss {
+    top: var(--scene-top);
+    left: 0;
+  }
+
+  .scene-key {
+    top: calc(var(--scene-top) + 24px);
+    left: var(--scene-x);
+  }
+
+  .scene-stage,
+  .scene-beam,
+  .scene-lamp {
+    display: none !important;
+  }
+
+  @media (min-width: 1024px) {
+    .scene-stage,
+    .scene-beam,
+    .scene-lamp {
+      display: block !important;
+    }
+  }
+
+  /* Past this width the page stops growing and sits centred, so the gutter does too. */
+  @media (min-width: 1580px) {
+    .scene {
+      --scene-x: calc(50% + 88px);
+    }
+  }
+
+  @media (min-width: 1800px) and (min-height: 1000px) {
+    .scene {
+      --scene-k: 1.25;
+    }
+  }
+
+  .scene-stage {
+    bottom: 0;
+    left: var(--scene-x);
+    width: calc(1600px * var(--scene-k));
+    margin-left: calc(-800px * var(--scene-k));
+  }
+
+  /* From the lit lens down to the middle of its pool on the stage floor. */
+  .scene-beam {
+    top: calc(var(--scene-top) + 64px);
+    left: var(--scene-x);
+    width: calc(224px * var(--scene-k));
+    height: calc(100% - var(--scene-top) - 64px - 89px * var(--scene-k));
+    margin-left: calc(-76px * var(--scene-k));
+    filter: blur(2.5px);
+  }
+
+  .scene[data-quiet="true"] .scene-beam {
+    opacity: 0.3;
+  }
+
+  .scene-breathe {
+    animation: lamp-breathe 6.5s ease-in-out infinite alternate;
+  }
+
   .grain {
     position: fixed;
     inset: 0;
@@ -454,6 +536,15 @@
   }
 }
 
+@keyframes lamp-breathe {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.93;
+  }
+}
+
 @keyframes sweep {
   from {
     transform: translateX(-120%) skewX(-18deg);
@@ -480,6 +571,16 @@
 
   .js .intro {
     opacity: 0;
+  }
+
+  /* The one working lamp comes up with the page. */
+  .js .scene-light {
+    opacity: 0;
+    transition: opacity 1.4s cubic-bezier(0.23, 1, 0.32, 1) 0.2s;
+  }
+
+  .is-ready .scene-light {
+    opacity: 1;
   }
 
   .is-ready .intro-bar {

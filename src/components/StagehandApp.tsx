@@ -17,7 +17,7 @@ import { Arrow, BrandMark, LiveDot } from "./Brand";
 import { DemoBanner } from "./DemoBanner";
 import { prefersReducedMotion } from "./motion";
 import { PromoDetail } from "./PromoDetail";
-import { StageCanvas, type StageRig } from "./StageCanvas";
+import { StageScene, type StageRig } from "./StageScene";
 import { VenueForm } from "./VenueForm";
 
 type View = "input" | "results" | "detail";
@@ -397,7 +397,7 @@ export function StagehandApp() {
   const count = shortlist?.artists.length ?? 0;
   return (
     <div className="flex min-h-screen flex-col">
-      <StageCanvas rigRef={rigRef} />
+      <StageScene rigRef={rigRef} quiet={view !== "input"} />
       <div className="grain" aria-hidden="true" />
       <div className="blackout" data-on={dark} aria-hidden="true" />
       <a className="skip" href="#main">
