@@ -37,6 +37,8 @@ const SWEEP_MS = 2400;
 const WIDE = 1024;
 /** How far the key lamp's pool reaches left of the mic, in stage units. The beam shares it. */
 const POOL_LEFT = 30;
+/** The air the stage keeps from the text column and the panel edge, in pixels. */
+const CLEAR = 10;
 
 /**
  * Where each dark lamp hangs along the truss, and how far it was swung when it was focused.
@@ -137,14 +139,17 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
 export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null>; view: string }) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const floorRef = useRef<HTMLDivElement>(null);
+  const groundRef = useRef<HTMLDivElement>(null);
   const resetRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const scene = sceneRef.current;
     const floor = floorRef.current;
+    const ground = groundRef.current;
     const main = document.getElementById("main");
-    if (!scene || !floor || !main) return;
+    if (!scene || !floor || !ground || !main) return;
     let frame = 0;
+    let measured = false;
 
     const set = (name: string, value: string) => scene.style.setProperty(name, value);
 
@@ -178,20 +183,29 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
       const lead = main!.querySelector(".grid > :first-child");
       const panel = main!.querySelector("[data-scene-panel]");
       if (!lead || !panel) return false;
+      // The scene scrolls with the page, so it is fitted in page coordinates. The activity panel
+      // is sticky, so it is only measured while the page is at the top.
+      const sy = window.scrollY;
+      if (view !== "input" && sy > 0 && measured) return true;
+      measured = true;
       const left = lead.getBoundingClientRect().right;
-      const box = panel.getBoundingClientRect();
+      const rect = panel.getBoundingClientRect();
+      const box = { left: rect.left, bottom: rect.bottom + sy };
       if (box.left - left < 24) return false;
       const height = window.innerHeight;
       const width = window.innerWidth;
       const x = (left + box.left) / 2;
-      // The band is measured with the page at the top, so the stage keeps its size while scrolling.
-      // The stage stands on the footer whenever the footer is on screen.
-      const footTop = document.querySelector("footer")?.getBoundingClientRect().top ?? height;
+      // The stage stands on the footer when the footer is within the first screen.
+      const footTop = (document.querySelector("footer")?.getBoundingClientRect().top ?? height) + sy;
       const lift = Math.max(0, height - footTop);
-      const still = view === "input" ? window.scrollY : 0;
-      const band = Math.min(height, footTop + still) - (box.bottom + still);
+      const band = Math.min(height, footTop) - box.bottom;
       const gear = band >= 100;
-      const k = gear && view === "input" ? clamp((band + 26) / 165, 0.6, 1.25) : clamp(height / 900, 0.8, 1.15);
+      const gutter = box.left - left;
+      // With no band the mic stands alone in the gutter, sized so it keeps clear of both columns.
+      const k =
+        gear && view === "input"
+          ? clamp((band + 26) / 165, 0.6, 1.25)
+          : Math.min(clamp(height / 900, 0.8, 1.15), Math.max(0.45, (gutter / 2 - CLEAR) / 24));
       const drop = height - lift - top - 52 * unit - 35 * k;
       set("--scene-x", `${x}px`);
       set("--scene-lift", `${lift}px`);
@@ -205,6 +219,11 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
       const base = height - lift;
       const under = Math.min(base, box.bottom);
       floor!.style.clipPath = `polygon(${a}px 0, ${b}px 0, ${b}px ${under}px, ${width}px ${under}px, ${width}px ${base}px, ${a}px ${base}px)`;
+      // The stage itself keeps a little air from both columns, so the mic never touches them.
+      const c = left + CLEAR;
+      const d = box.left - CLEAR;
+      const below = Math.min(base, box.bottom + CLEAR);
+      ground!.style.clipPath = `polygon(${c}px 0, ${d}px 0, ${d}px ${below}px, ${width}px ${below}px, ${width}px ${base}px, ${c}px ${base}px)`;
       // A dark lamp that would hang on top of the key lamp is taken down.
       for (const lamp of scene!.querySelectorAll<SVGElement>(".scene-lamp")) {
         const at = (parseFloat(lamp.getAttribute("x") ?? "0") / 100) * width;
@@ -237,7 +256,6 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
     const panel = main.querySelector("[data-scene-panel]");
     if (panel) observer.observe(panel);
     window.addEventListener("resize", queue);
-    window.addEventListener("scroll", queue, { passive: true });
     // Entrance animations move the panel, so the fit runs again when each one lands.
     document.addEventListener("animationend", queue);
     void document.fonts?.ready.then(queue);
@@ -245,7 +263,6 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener("resize", queue);
-      window.removeEventListener("scroll", queue);
       document.removeEventListener("animationend", queue);
     };
   }, [view]);
@@ -395,6 +412,9 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
           />
         </svg>
 
+      </div>
+
+      <div ref={groundRef} className="scene-floor">
         {/* The mic stands at x=100. The stage runs off to the right and fades out to the left. */}
         <svg className="scene-stage" viewBox="0 0 1300 276">
           <defs>
@@ -507,17 +527,26 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
           </g>
 
           {/* The pool the one lit lamp throws. It is aimed off the mic, toward the kit. */}
-          <g className="scene-light scene-pool">
+          {/* Alone in the gutter, the lamp throws a small pool right round the mic stand. */}
+          <g className="scene-solo scene-light scene-pool">
             <g className="scene-breathe">
-              <ellipse cx="162" cy="241" rx="92" ry="15" fill="url(#scene-pool)" />
+              <ellipse cx="100" cy="246" rx="30" ry="9" fill="url(#scene-pool)" />
+            </g>
+          </g>
+
+          <g className="scene-gear scene-light scene-pool">
+            <g className="scene-breathe">
+              <ellipse cx="172" cy="241" rx="88" ry="15" fill="url(#scene-pool)" />
               <rect x="84" y="262" width="160" height="1.5" fill="url(#scene-lip)" />
             </g>
           </g>
 
           {/* What stands in the pool: the mic cable, the singer's wedge and the mic stand. */}
-          <path d="M112 251C150 262 190 250 240 256S400 262 470 250" fill="none" stroke="#04060a" strokeWidth="2" />
-          <polygon points="128,260 196,260 189,239 135,239" fill={BODY} />
-          <path d="M135 239H189" stroke={EDGE} strokeWidth="1" />
+          <g className="scene-gear">
+            <path d="M112 251C150 262 190 250 240 256S400 262 470 250" fill="none" stroke="#04060a" strokeWidth="2" />
+            <polygon points="128,260 196,260 189,239 135,239" fill={BODY} />
+            <path d="M135 239H189" stroke={EDGE} strokeWidth="1" />
+          </g>
           <ellipse cx="100" cy="250" rx="15" ry="3.5" fill={BODY} stroke={EDGE} strokeWidth="1" />
           <path d="M100 250V114" stroke={BODY} strokeWidth="3.5" />
           <path d="M99 250V114" stroke={EDGE} strokeWidth="1" />
@@ -530,7 +559,7 @@ export function StageScene({ rigRef, view }: { rigRef: RefObject<StageRig | null
             <path d="M86 249.5Q100 246.5 114 249.5" strokeWidth="1" opacity="0.8" />
             <path d="M101.5 246V190M101.5 174V118" strokeWidth="1" opacity="0.45" />
             <path d="M84.5 91.6A6 6 0 0 1 94.9 91.6" strokeWidth="1.2" opacity="0.9" />
-            <path d="M135 239H189" strokeWidth="1" opacity="0.7" />
+            <path className="scene-gear" d="M135 239H189" strokeWidth="1" opacity="0.7" />
             {/* The near side of the kit catches the spill. */}
             <g className="scene-gear" strokeWidth="1" opacity="0.45">
               <path d="M200 156q22 -7 44 0" />

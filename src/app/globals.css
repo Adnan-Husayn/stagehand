@@ -117,13 +117,11 @@
     filter: blur(1.5px);
   }
 
-  /* Two columns: the scene stays put while the page scrolls, and the stage is drawn. */
+  /*
+   * Two columns: the stage is drawn. The scene is the first screen of the page and scrolls away
+   * with it, so text never slides over a lit lamp.
+   */
   @media (min-width: 1024px) {
-    .scene {
-      position: fixed;
-      height: 100%;
-    }
-
     .scene-lamp:not(.scene-lamp-small),
     .scene-floor {
       display: block !important;
@@ -142,7 +140,8 @@
 
   .scene:not([data-fit]) .scene-floor,
   .scene:not([data-fit]) .scene-key,
-  .scene[data-gear="off"] .scene-gear {
+  .scene[data-gear="off"] .scene-gear,
+  .scene:not([data-gear="off"]) .scene-solo {
     visibility: hidden;
   }
 
