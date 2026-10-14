@@ -19,6 +19,7 @@ debug-dumps/
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+Thumbs.db
 .vercel
 
 # Temporary live-check key pulled from Vercel. Deleted after use.
