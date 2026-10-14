@@ -18,7 +18,7 @@ I read each provider's own documentation where I could. A row marked "unconfirme
 
 ## DeepSeek
 
-Read from DeepSeek's own documentation on 2026-10-11. I have no DeepSeek key, so none of this has been tried against the real API.
+Read from DeepSeek's own documentation on 2026-10-11. Since 14 October 2026 the live site runs on `deepseek-flash`, and shortlist and promo runs have finished against the real Qloo API. The price figures below are still estimates.
 
 **Setup.** Three values:
 
@@ -65,7 +65,7 @@ So a session on `deepseek-flash` should cost between 1 and 3 US cents. The cache
 - The Chat Completions API does not support inserting tool calls mid-conversation. Stagehand does not do that.
 - JSON mode (`response_format` of `{"type": "json_object"}`) exists. Stagehand does not use it, because it takes its structured output from the submit tools. Source: https://api-docs.deepseek.com/guides/json_mode.
 - The docs do not mention parallel tool calls or a limit on the number of tools. Stagehand handles several calls in one reply either way.
-- Not confirmed: whether DeepSeek accepts Stagehand's tool schemas as they are. The live check sends all of them in its first request.
+- DeepSeek accepts Stagehand's tool schemas as they are. Live runs on the deployed site confirm it.
 
 ## Temperature
 
@@ -86,7 +86,7 @@ Gemini: the available-regions page lists both India and the United States, so a 
 - Gemini's exact thought-signature format on the OpenAI-compatible endpoint. The compatibility page says Gemini 3 supports it in chat completions but shows no JSON. Stagehand sends each tool call back to the provider exactly as it received it, which keeps any such field.
 - Whether Groq's free plan matches the table I read, and whether a card is needed there.
 - The Cerebras and Mistral base URLs, and everything about Mistral's free tier.
-- Tool-calling quality of every model above. I have made no model requests to any provider. The loop has only run against a scripted stand-in model on this machine.
+- Tool-calling quality of every model above except `deepseek-flash`, which runs the live site.
 - The exact field that carries Gemini's thought signature on the OpenAI-compatible endpoint. Google's thinking guide says signatures must be sent back unchanged in stateless use, but its chat completions section shows no JSON. Stagehand keeps every field of each tool call it receives, which should cover it.
 
 ## Data use
@@ -95,8 +95,8 @@ On Gemini's free tier, Google's pricing page lists inputs and outputs as used to
 
 ## Recommendation
 
-Default: Gemini API with `gemini-3.5-flash-lite`. It needs no card, it is the only card-free option here whose reported daily requests and tokens per minute both fit an agent loop, and the OpenAI-compatible endpoint documents function calling with `tool_choice` set to `auto`. Groq's reported 8,000 tokens per minute is smaller than what a few turns of this agent send. By my estimate a run would hit that limit around the third or fourth request, and the 20 second retry window would not clear it. If you get a larger Gemini quota in AI Studio, set `LLM_MODEL=gemini-3.8-flash` for better tool calling.
+Default in code: Gemini API with `gemini-3.5-flash-lite`. It needs no card, it is the only card-free option here whose reported daily requests and tokens per minute both fit an agent loop, and the OpenAI-compatible endpoint documents function calling with `tool_choice` set to `auto`. Groq's reported 8,000 tokens per minute is smaller than what a few turns of this agent send. By my estimate a run would hit that limit around the third or fourth request, and the 20 second retry window would not clear it. If you get a larger Gemini quota in AI Studio, set `LLM_MODEL=gemini-3.8-flash` for better tool calling.
 
 Fallback: Groq with `openai/gpt-oss-120b`. Set `LLM_BASE_URL=https://api.groq.com/openai/v1` and `LLM_MODEL=openai/gpt-oss-120b`. Expect rate-limit errors on longer runs unless the free plan allows more tokens per minute than the table I read.
 
-Paid option: DeepSeek with `deepseek-flash`, at roughly 1 to 3 US cents a session by my estimate (see the DeepSeek section). Use it if the Gemini free quota is too small for a demo day. Run `npm run live:check` with `LIVE_PROVIDER=deepseek` first to confirm it handles the tool schemas.
+Paid option, used on the live site: DeepSeek with `deepseek-flash`, at roughly 1 to 3 US cents a session by my estimate (see the DeepSeek section).
