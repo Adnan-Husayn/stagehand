@@ -4,6 +4,10 @@ Stagehand is a booking and promotion agent for independent music venues, built f
 
 Enter a city and, optionally, up to five artists that sold well for you. An agent makes Qloo calls and returns a ranked shortlist, each artist with the Qloo evidence behind it. For an artist you pick, it builds a promo plan: the local places, brands, podcasts, films and TV shows that artist's fans over-index on, suggested ad audiences, and two draft emails. It is for venue bookers and small promoters who book their own shows.
 
+- Live site: https://stagehand-venues.vercel.app (live mode, real Qloo data, DeepSeek `deepseek-flash` as the model)
+- Devpost: https://devpost.com/software/stagehand-19pf8j
+- GitLab mirror: https://gitlab.com/gitlab-ai-hackathon/transcend-october-2026/43241073/showcase
+
 ## Why it needs Qloo
 
 Stagehand's output is a set of taste relationships: which artists over-index with a city's places, and which brands and media their fans favour. A language model can write plausible names, but it has no measured overlap to draw on. Without Qloo the shortlist would be guesses and the partner list invented.
@@ -25,13 +29,15 @@ Exact parameters, live test results and unverified items are in [`docs/QLOO_NOTE
 
 ## How the agent works
 
-The browser posts to `POST /api/agent` and receives trace events and the result as server-sent events. The language model chooses the tools and their order. It talks to any OpenAI-compatible Chat Completions API over `fetch`, with no provider SDK. The default is Google's Gemini API free tier. The search and insights tools call Qloo through a typed client, and every tool call appears in the Agent activity panel as it happens.
+The browser posts to `POST /api/agent` and receives trace events and the result as server-sent events. The language model chooses the tools and their order. It talks to any OpenAI-compatible Chat Completions API over `fetch`, with no provider SDK. The default in code is Google's Gemini API (`gemini-3.5-flash-lite`). The live site overrides it with DeepSeek's `deepseek-flash` through environment variables. The search and insights tools call Qloo through a typed client, and every tool call appears in the Agent activity panel as it happens.
 
 Two submit tools end a run. `submit_shortlist` returns 3 to 8 artists for a city. `submit_promo_plan` returns 3 to 6 partners and 2 to 5 ad targets for one artist. Each submit checks its input against the same run's results and rejects any id it did not receive. Evidence chips are built from those Qloo responses, not from model text.
 
 - **Seed exclusion.** Seed artists are never recommended back. Their ids go to Qloo as `filter.exclude.entities` on artist calls, and `submit_shortlist` also rejects them by id or normalised name.
 - **City matching.** Qloo's locality search is fuzzy, so Stagehand accepts a locality only when its name matches the venue's city, and it uses the state or country to choose between cities that share a name.
 - **Local place fallback.** Place search filters by the locality's coordinates. If the city has no locality in Qloo, it falls back to a text search and keeps only places whose address names the city. Local place insights filter by the locality id first. The activity trace shows which strategy worked.
+
+The page is a dark stage scene: a lighting truss over a mic stand. Lamps light one by one as the agent finishes steps, the key lamp sweeps while a run is going, and the lights rise into a wash when a result comes back. It respects reduced-motion settings.
 
 **Demo mode** runs when `QLOO_API_KEY` or `LLM_API_KEY` is missing. It runs the same tools and validators on a fixed call sequence with fictional sample data, and a banner says so.
 
@@ -40,12 +46,12 @@ Two submit tools end a run. `submit_shortlist` returns 3 to 8 artists for a city
 Requires Node.js 20 or later.
 
 ```bash
-npm install
-cp .env.example .env.local   # then fill in real values
+npm ci
+cp .env.example .env.local   # optional: fill in real keys for live mode
 npm run dev                  # http://localhost:3000
 ```
 
-Without keys the app runs in demo mode.
+Without keys (leave `QLOO_API_KEY` or `LLM_API_KEY` empty, or skip `.env.local`) the app runs in demo mode with fictional sample data.
 
 ### Environment variables
 
@@ -64,7 +70,7 @@ Keys are read on the server only. `.env*` files are git-ignored except `.env.exa
 
 ### Using DeepSeek (paid)
 
-DeepSeek is a paid, low-cost option. Set three values, and add a fourth that I recommend:
+DeepSeek is a paid, low-cost option and is what the live site uses. Set these values:
 
 ```
 LLM_API_KEY=<your DeepSeek key>
@@ -73,7 +79,7 @@ LLM_MODEL=deepseek-flash
 LLM_THINKING=disabled
 ```
 
-DeepSeek turns thinking on by default, which adds latency and output tokens. With it on, Stagehand still works: it sends each reply's `reasoning_content` back, as DeepSeek requires when tools are in the request. My estimate for one session (a shortlist plus one promo plan) on `deepseek-flash` is 1 to 3 US cents. It is an estimate from assumed token counts, not a measurement. Prices, limits and sources are in [`docs/MODEL_PROVIDERS.md`](docs/MODEL_PROVIDERS.md). Nothing has been run against DeepSeek yet.
+DeepSeek turns thinking on by default, which adds latency and output tokens. With it on, Stagehand still works: it sends each reply's `reasoning_content` back, as DeepSeek requires when tools are in the request. My estimate for one session (a shortlist plus one promo plan) on `deepseek-flash` is 1 to 3 US cents. It is an estimate from assumed token counts, not a measurement. Prices, limits and sources are in [`docs/MODEL_PROVIDERS.md`](docs/MODEL_PROVIDERS.md).
 
 ### Getting a free model key
 
@@ -89,7 +95,7 @@ To use Groq instead, create a key at https://console.groq.com/keys and set `LLM_
 
 ## Scripts and tests
 
-`npm run dev`, `npm run build`, `npm run typecheck` (`tsc --noEmit`), `npm run lint`, `npm test` and `npm run live:check`. The Vitest suite behind `npm test` runs offline. It covers the validators, the response normaliser, the local place fallback chain, the demo sequence, the sample-data Qloo transport, the model client (with a mocked `fetch`), the live-check helpers and an end-to-end run of the live loop with a scripted fake model. `npm run live:check` is separate and sends real requests, so `npm test` never runs it.
+`npm run dev`, `npm run build`, `npm start`, `npm run typecheck` (`tsc --noEmit`), `npm run lint`, `npm test` and `npm run live:check`. The Vitest suite behind `npm test` runs offline (175 tests in 14 files). It covers the validators, the response normaliser, the local place fallback chain, the demo sequence, the sample-data Qloo transport, the model client (with a mocked `fetch`), the live-check helpers and an end-to-end run of the live loop with a scripted fake model. `npm run live:check` is separate and sends real requests, so `npm test` never runs it.
 
 ### Live model check
 
@@ -132,17 +138,16 @@ The seconds in the table leave out the waiting this tool adds between requests, 
 
 ## Deploy to Vercel
 
-1. Push the repository to GitHub.
-2. In Vercel, import the repository. The Next.js preset needs no build changes.
-3. Add `QLOO_API_KEY`, `QLOO_BASE_URL` and `LLM_API_KEY` under Environment Variables. Add `LLM_BASE_URL` and `LLM_MODEL` only to override the defaults.
-4. Deploy. `/api/status` should report `"demo": false`, and `/api/health` should report `"ok": true`.
+1. In Vercel, import the repository. The Next.js preset needs no build changes.
+2. Add `QLOO_API_KEY`, `QLOO_BASE_URL` and `LLM_API_KEY` under Environment Variables. Add `LLM_BASE_URL`, `LLM_MODEL` and `LLM_THINKING` to use a provider other than the Gemini default (the live site sets them for DeepSeek).
+3. Deploy. `/api/status` should report `"demo": false`, and `/api/health` should report `"ok": true`.
 
 A live run makes several sequential calls and can take a minute or more. The agent route sets `maxDuration = 300`, the ceiling on Vercel's Hobby plan. Change it in `src/app/api/agent/route.ts`.
 
 ## Known limits
 
-- **Live testing is recent and small.** The live path was first run against the Qloo hackathon API on 14 October 2026, with DeepSeek's `deepseek-flash` as the model. Shortlist and promo runs finished for Asheville, Marfa, Portland (Maine) and Hebden Bridge, each in 15 to 35 seconds with 8 to 12 model calls. That is a handful of runs. `docs/QLOO_NOTES.md` lists what the live API returned.
-- **Other models are untested.** Gemini and Groq have not been run with Stagehand's tool schemas. The cost of a DeepSeek run was not measured. The figure in the docs is an estimate from assumed token counts.
+- **Live testing is small.** The live path has run against the Qloo hackathon API since 14 October 2026 with DeepSeek's `deepseek-flash`. Shortlist and promo runs finished for Asheville, Marfa, Portland (Maine) and Hebden Bridge, each in 15 to 35 seconds with 8 to 12 model calls. `docs/QLOO_NOTES.md` lists what the live API returned.
+- **Gemini and Groq are not tested live.** Only DeepSeek has run Stagehand's tool schemas against the real Qloo API. The DeepSeek cost per session is an estimate from assumed token counts, not a measurement.
 - **Small towns can be missing from Qloo.** When a city has no locality, Stagehand works from places whose address names the city and from the seed artists. When Qloo has no city, no places and no seed artists, the run stops with a message that says so.
 - **Local and seed audiences often do not overlap.** In the test runs `compare_audiences` usually found no shared artists between the local-place results and the seed results, so most shortlists leaned on the seed run.
 - **The artist location signal is experimental.** Its results are labelled, and an artist found only through it is rejected.
