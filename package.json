@@ -5,6 +5,17 @@
   "description": "A Qloo-powered booking and promotion agent for independent music venues.",
   "author": "Adnan Husayn",
   "license": "MIT",
+  "homepage": "https://stagehand-venues.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Adnan-Husayn/stagehand.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Adnan-Husayn/stagehand/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
