@@ -20,12 +20,6 @@ export function str(input: unknown, key: string, max = 200): string {
   return value.trim();
 }
 
-export function optStr(input: unknown, key: string, max = 200): string | undefined {
-  const value = asObject(input)[key];
-  if (value === undefined || value === null || value === "") return undefined;
-  return str(input, key, max);
-}
-
 export function strArr(input: unknown, key: string, min: number, max: number): string[] {
   const value = asObject(input)[key];
   if (!Array.isArray(value) || value.some((v) => typeof v !== "string" || v.trim() === "")) {
@@ -64,10 +58,6 @@ export function objArr(input: unknown, key: string, min: number, max: number): O
     throw new InputError(`"${key}" must contain between ${min} and ${max} items.`);
   }
   return value as Obj[];
-}
-
-export function field(obj: Obj, key: string, max: number): string {
-  return str(obj, key, max);
 }
 
 export function optStrArr(input: unknown, key: string, max: number): string[] {

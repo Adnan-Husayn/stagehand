@@ -601,5 +601,3 @@ export function shortlistTools(): AgentTool[] {
 export function promoTools(): AgentTool[] {
   return [resolveCity, searchEntities, findLocalPlaces, getInsights, compareAudiences, submitPromoPlan];
 }
-
-export const FINAL_TOOL = { shortlist: "submit_shortlist", promo: "submit_promo_plan" } as const;

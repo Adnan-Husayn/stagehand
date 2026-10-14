@@ -2,9 +2,6 @@
 // documented Qloo response fields but are NOT real Qloo output. Ids are prefixed "sample-".
 import { ENTITY_TYPE_URN } from "../qloo/types";
 
-export const FIXTURE_NOTICE =
-  "Sample fixtures shaped like documented Qloo responses. Fictional names and numbers, not real Qloo output.";
-
 export interface FixtureEntity {
   id: string;
   name: string;
