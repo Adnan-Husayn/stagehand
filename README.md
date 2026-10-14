@@ -10,7 +10,7 @@ Enter a city and, optionally, up to five artists that sold well for you. An agen
 
 ## Why it needs Qloo
 
-Stagehand's output is a set of taste relationships: which artists over-index with a city's places, and which brands and media their fans favour. A language model can write plausible names, but it has no measured overlap to draw on. Without Qloo the shortlist would be guesses and the partner list invented.
+Stagehand's output is a set of taste relationships: which artists over-index with a city's places, and which brands and media their fans favour. A language model can write plausible names, but it has no measured overlap to draw on. Without Qloo the shortlist would be guesswork and the partner list made up.
 
 ## How Qloo is used
 
@@ -31,7 +31,7 @@ Exact parameters, live test results and unverified items are in [`docs/QLOO_NOTE
 
 The browser posts to `POST /api/agent` and receives trace events and the result as server-sent events. The language model chooses the tools and their order. It talks to any OpenAI-compatible Chat Completions API over `fetch`, with no provider SDK. The default in code is Google's Gemini API (`gemini-3.5-flash-lite`). The live site overrides it with DeepSeek's `deepseek-flash` through environment variables. The search and insights tools call Qloo through a typed client, and every tool call appears in the Agent activity panel as it happens.
 
-Two submit tools end a run. `submit_shortlist` returns 3 to 8 artists for a city. `submit_promo_plan` returns 3 to 6 partners and 2 to 5 ad targets for one artist. Each submit checks its input against the same run's results and rejects any id it did not receive. Evidence chips are built from those Qloo responses, not from model text.
+Two submit tools end a run. `submit_shortlist` returns 3 to 8 artists for a city. `submit_promo_plan` returns 3 to 6 partners and 2 to 5 ad targets for one artist. Each submit checks its input against the same run's results and rejects any id it did not receive. Evidence chips are built from those Qloo responses, so the model cannot change the numbers on screen.
 
 - **Seed exclusion.** Seed artists are never recommended back. Their ids go to Qloo as `filter.exclude.entities` on artist calls, and `submit_shortlist` also rejects them by id or normalised name.
 - **City matching.** Qloo's locality search is fuzzy, so Stagehand accepts a locality only when its name matches the venue's city, and it uses the state or country to choose between cities that share a name.
@@ -79,7 +79,7 @@ LLM_MODEL=deepseek-flash
 LLM_THINKING=disabled
 ```
 
-DeepSeek turns thinking on by default, which adds latency and output tokens. With it on, Stagehand still works: it sends each reply's `reasoning_content` back, as DeepSeek requires when tools are in the request. My estimate for one session (a shortlist plus one promo plan) on `deepseek-flash` is 1 to 3 US cents. It is an estimate from assumed token counts, not a measurement. Prices, limits and sources are in [`docs/MODEL_PROVIDERS.md`](docs/MODEL_PROVIDERS.md).
+DeepSeek turns thinking on by default, which adds latency and output tokens. With it on, Stagehand still works: it sends each reply's `reasoning_content` back, as DeepSeek requires when tools are in the request. My estimate for one session (a shortlist plus one promo plan) on `deepseek-flash` is 1 to 3 US cents, worked out from assumed token counts. I have not measured it. Prices, limits and sources are in [`docs/MODEL_PROVIDERS.md`](docs/MODEL_PROVIDERS.md).
 
 ### Getting a free model key
 
@@ -147,7 +147,7 @@ A live run makes several sequential calls and can take a minute or more. The age
 ## Known limits
 
 - **Live testing is small.** The live path has run against the Qloo hackathon API since 14 October 2026 with DeepSeek's `deepseek-flash`. Shortlist and promo runs finished for Asheville, Marfa, Portland (Maine) and Hebden Bridge, each in 15 to 35 seconds with 8 to 12 model calls. `docs/QLOO_NOTES.md` lists what the live API returned.
-- **Gemini and Groq are not tested live.** Only DeepSeek has run Stagehand's tool schemas against the real Qloo API. The DeepSeek cost per session is an estimate from assumed token counts, not a measurement.
+- **Gemini and Groq are not tested live.** Only DeepSeek has run Stagehand's tool schemas against the real Qloo API. The DeepSeek cost per session is worked out from assumed token counts and has not been measured.
 - **Small towns can be missing from Qloo.** When a city has no locality, Stagehand works from places whose address names the city and from the seed artists. When Qloo has no city, no places and no seed artists, the run stops with a message that says so.
 - **Local and seed audiences often do not overlap.** In the test runs `compare_audiences` usually found no shared artists between the local-place results and the seed results, so most shortlists leaned on the seed run.
 - **The artist location signal is experimental.** Its results are labelled, and an artist found only through it is rejected.
