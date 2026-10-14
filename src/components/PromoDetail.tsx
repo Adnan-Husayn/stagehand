@@ -210,15 +210,19 @@ export function PromoDetail({ plan }: { plan: PromoPlan }) {
                 <p className="mt-2 text-md font-semibold leading-[1.35]">{target.audience}</p>
                 <p className="mt-2 text-base text-soft">{target.rationale}</p>
                 {target.basedOn.length > 0 && (
-                  <dl className="mt-[0.9rem] flex gap-3 border-t border-hair pt-[0.55rem] text-ui">
-                    <dt className="flex-none text-soft">Based on</dt>
-                    <dd className="min-w-0 [overflow-wrap:anywhere]">
-                      {target.basedOn.map((item, itemIndex) => (
-                        <Fragment key={item.entityId}>
-                          {itemIndex > 0 && ", "}
-                          {item.name}
-                        </Fragment>
-                      ))}
+                  <dl className="mt-[0.9rem] border-t border-hair pt-[0.55rem] text-ui">
+                    <dt className="text-soft">Based on</dt>
+                    <dd className="mt-[0.45rem]">
+                      <ul className="flex flex-wrap gap-[0.4rem]">
+                        {target.basedOn.map((item) => (
+                          <li
+                            key={item.entityId}
+                            className="max-w-full rounded-full border border-key/70 px-[0.7rem] py-[0.2rem] text-sm font-medium text-key [overflow-wrap:anywhere]"
+                          >
+                            {item.name}
+                          </li>
+                        ))}
+                      </ul>
                     </dd>
                   </dl>
                 )}

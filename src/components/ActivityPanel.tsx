@@ -208,7 +208,9 @@ export function ActivityPanel({ trace, running }: { trace: TraceStep[]; running:
   }
 
   const hasError = trace.some((step) => step.kind === "error");
-  const state = running ? "Live" : trace.length === 0 ? "Idle" : hasError ? "Stopped" : "Done";
+  // "Running" rather than "Live": the header's "Live mode" badge is about where the data comes
+  // from, and this is about whether a run is going. Using one word for both made them disagree.
+  const state = running ? "Running" : trace.length === 0 ? "Idle" : hasError ? "Stopped" : "Done";
 
   return (
     <section
@@ -291,13 +293,15 @@ export function ActivityPanel({ trace, running }: { trace: TraceStep[]; running:
         </div>
       )}
 
-      {detached && rows.length > 0 && (
+      {/* Only while new steps are still arriving, and only once the reader has scrolled up. It sits
+          at the left so it never lands on the list's scrollbar. */}
+      {running && detached && rows.length > 0 && (
         <button
           type="button"
           onClick={jumpToLatest}
-          className="btn btn-ghost absolute bottom-3 left-1/2 min-h-9 -translate-x-1/2 bg-raised px-3 text-ui"
+          className="btn btn-ghost absolute bottom-3 left-5 min-h-9 bg-raised px-3 text-ui"
         >
-          {running && <LiveDot />}
+          <LiveDot />
           Jump to latest
         </button>
       )}

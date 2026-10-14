@@ -50,15 +50,33 @@ const HOW_IT_RUNS = [
 ];
 
 /** One mask per word, so a headline can rise word by word and still wrap. */
+/**
+ * Splits a headline into words that can rise one by one. A "|" marks a phrase boundary: lines
+ * may only break there, so a short word like "the" never ends up alone at any width.
+ */
 function Words({ text, from }: { text: string; from: number }) {
-  const words = text.split(/\s+/).filter(Boolean);
+  let n = from;
+  const phrases = text.split("|").map((phrase) =>
+    phrase
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => ({ word, n: n++ })),
+  );
   return (
     <>
-      {words.map((word, index) => (
+      {phrases.map((words, index) => (
         <Fragment key={index}>
           {index > 0 && " "}
-          <span className="w" aria-hidden="true">
-            <i style={{ "--n": from + index } as CSSProperties}>{word}</i>
+          <span className="whitespace-nowrap">
+            {words.map(({ word, n: order }, wordIndex) => (
+              <Fragment key={order}>
+                {wordIndex > 0 && " "}
+                <span className="w" aria-hidden="true">
+                  <i style={{ "--n": order } as CSSProperties}>{word}</i>
+                </span>
+              </Fragment>
+            ))}
           </span>
         </Fragment>
       ))}
@@ -402,7 +420,7 @@ export function StagehandApp() {
               "Demo mode"
             ) : (
               <>
-                Live<span className="hidden xl:inline">&nbsp;/ Qloo and a language model</span>
+                Live mode<span className="hidden xl:inline">&nbsp;/ Qloo and a language model</span>
               </>
             )}
           </span>
@@ -426,9 +444,9 @@ export function StagehandApp() {
                   aria-label="Shortlist artists for your venue, then plan the promotion."
                   className="display"
                 >
-                  <Words text="Shortlist artists for your venue," from={0} />{" "}
+                  <Words text="Shortlist artists | for your venue," from={0} />{" "}
                   <em className="turn">
-                    <Words text="then plan the promotion." from={5} />
+                    <Words text="then plan the | promotion." from={5} />
                   </em>
                 </h1>
                 <p className="intro intro-lede mt-6 max-w-[34rem] text-lead text-lit">
